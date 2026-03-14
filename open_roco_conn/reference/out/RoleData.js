@@ -1,0 +1,138 @@
+System.register("chunks:///_virtual/RoleData.ts", ["cc"], (function(i) {
+        var t;
+        return {
+            setters: [function(i) {
+                t = i.cclegacy
+            }
+            ],
+            execute: function() {
+                t._RF.push({}, "f6f620uIplNbIjapuzhC+bO", "RoleData", void 0);
+                var a = i("RoleData", function() {
+                    function i() {
+                        this.id = 0,
+                            this.uin = 0,
+                            this.roleType = 0,
+                            this.nickName = "",
+                            this.skinType = 0,
+                            this.avatarType = 0,
+                            this.avatarVersion = 0,
+                            this.avatarURL = "",
+                            this.level = 0,
+                            this.isVip = void 0,
+                            this.vipLevel = 0,
+                            this.vipExpiringDays = 0,
+                            this.direction = -1,
+                            this.motionType = -1,
+                            this.speed = 4,
+                            this.locXY = void 0,
+                            this.stateType = 0,
+                            this.isFlying = 0,
+                            this.flyItem = 0,
+                            this.isSwiming = 0,
+                            this.swimItem = 0,
+                            this.cursedType = 0,
+                            this.flashType = 0,
+                            this.summonType = 0,
+                            this.rideType = 0,
+                            this.spiritID = 0,
+                            this.vipLulu = 0,
+                            this.guardianPetID = 0,
+                            this.guardianPetLv = 0,
+                            this.isMagicOffset = 0,
+                            this.pkState = 0,
+                            this.trainerLevel = 0,
+                            this.trainerExp = 0,
+                            this.achieveId = 0,
+                            this.titleLevel = 0,
+                            this.isInBombat = void 0,
+                            this.flag = 0,
+                            this.avatarEffectID = 0,
+                            this.avatarTransformID = 0,
+                            this.fishingState = 0,
+                            this.qualifyEmblem = 0,
+                            this.selectedMedal = 0,
+                            this.footprintID = 0,
+                            this.namebgId = 0,
+                            this.paopaoId = 0,
+                            this.dazzleAvatar = void 0,
+                            this.daMagic = 0,
+                            this.daRing = 0,
+                            this.daMount = 0,
+                            this.daEnvironment = 0,
+                            this.daBackground = 0,
+                            this.daFrame = 0,
+                            this.daDoll = 0,
+                            this.daStamp = 0,
+                            this.daFootprint = 0,
+                            this.daNamebg = 0,
+                            this.daPopup = 0
+                    }
+                    var t = i.prototype;
+                    return t.update = function(i) {
+                        this.nickName = i.nickName,
+                            this.skinType = i.skinType,
+                            this.avatarType = i.avatarType,
+                            this.avatarVersion = i.avatarVersion,
+                            this.avatarURL = i.avatarURL,
+                            this.level = i.level,
+                            this.isVip = i.isVip,
+                            this.vipLevel = i.vipLevel,
+                            this.vipExpiringDays = i.vipExpiringDays,
+                            this.direction = i.direction,
+                            this.motionType = i.motionType,
+                            this.speed = i.speed,
+                            this.locXY = i.locXY,
+                            this.stateType = i.stateType,
+                            this.isFlying = i.isFlying,
+                            this.flyItem = i.flyItem,
+                            this.isSwiming = i.isSwiming,
+                            this.swimItem = i.swimItem,
+                            this.cursedType = i.cursedType,
+                            this.flashType = i.flashType,
+                            this.summonType = i.summonType,
+                            this.rideType = i.rideType,
+                            this.spiritID = i.spiritID,
+                            this.vipLulu = i.vipLulu,
+                            this.guardianPetID = i.guardianPetID,
+                            this.guardianPetLv = i.guardianPetLv,
+                            this.isMagicOffset = i.isMagicOffset,
+                            this.pkState = i.pkState,
+                            this.trainerLevel = i.trainerLevel,
+                            this.trainerExp = i.trainerExp,
+                            this.achieveId = i.achieveId,
+                            this.titleLevel = i.titleLevel,
+                            this.fishingState = i.fishingState,
+                            this.avatarEffectID = i.avatarEffectID,
+                            this.avatarTransformID = i.avatarTransformID,
+                            this.qualifyEmblem = i.qualifyEmblem,
+                            this.selectedMedal = i.selectedMedal,
+                            this.footprintID = i.footprintID,
+                            this.namebgId = i.namebgId,
+                            this.paopaoId = i.paopaoId,
+                            this.dazzleAvatar = i.dazzleAvatar,
+                            this.daBackground = i.daBackground,
+                            this.daDoll = i.daDoll,
+                            this.daEnvironment = i.daEnvironment,
+                            this.daFootprint = i.daFootprint,
+                            this.daFrame = i.daFrame,
+                            this.daMagic = i.daMagic,
+                            this.daMount = i.daMount,
+                            this.daNamebg = i.daNamebg,
+                            this.daPopup = i.daPopup,
+                            this.daRing = i.daRing,
+                            this.daStamp = i.daStamp
+                    }
+                        ,
+                        t.toString = function() {
+                            return "[RoleData: id = " + this.id + ", uin = " + this.uin + ", nickName = " + this.nickName + "]"
+                        }
+                        ,
+                        i
+                }());
+                a.GUEST = 0,
+                    a.MEMBER = 1,
+                    t._RF.pop()
+            }
+        }
+    }
+));
