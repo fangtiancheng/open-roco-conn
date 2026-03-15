@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include "adf.hpp"
+#include "byte_array.hpp"
 
 class ProtocolHelper: public RFBase{
 public:
@@ -63,10 +63,10 @@ public:
 
         static constexpr bool MEMBER = true;
         static constexpr bool GUEST = false;
-    };
+    } role_data;
 
-    static void read_object(ADF& adf); //TODO
-    static void read_code(ADF& adf); // TODO
-    static RoleData read_role_data(ADF& adf);
+    void read_object(ByteArray&); //TODO
+    void read_code(ByteArray& ); // TODO
+    void read_role_data(ByteArray&);
 };
 

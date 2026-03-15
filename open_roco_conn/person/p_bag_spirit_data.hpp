@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
-#include "adf.hpp"
+#include <string>
+#include "base/rf_base.hpp"
+#include "adf_protocol/byte_array.hpp"
 
 class P_BagSpiritData: public RFBase{
 public:
@@ -34,6 +36,6 @@ public:
         int index;
     };
 
-    BagSpiritData read(ADF &adf);
+    BagSpiritData read(ByteArray&);
 };
 

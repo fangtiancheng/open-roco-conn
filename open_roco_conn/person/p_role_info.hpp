@@ -1,5 +1,6 @@
 #pragma once
-#include "adf.hpp"
+#include "base/rf_base.hpp"
+#include "adf_protocol/byte_array.hpp"
 
 struct P_RoleInfo: public RFBase{
 public:
@@ -13,9 +14,8 @@ public:
         point_t position;
         int16_t direction;
         int8_t has_pet;
-    };
+    } role_info;
 
-    static RoleInfo read_external(ADF& adf);
+    void read_external(ByteArray&);
 };
 
-P_RoleInfo read_code(ADF& adf);

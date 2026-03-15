@@ -1,9 +1,8 @@
 #include "p_role_info.hpp"
-#include "define.hpp"
 
 
-P_RoleInfo::RoleInfo P_RoleInfo::read_external(ADF& adf){
-    RoleInfo ri;
+void P_RoleInfo::read_external(ByteArray& adf){
+    auto& ri = role_info;
     ri.uin = adf.read_unsigned_int();
     ri.nick_name = adf.read_chars(Define::L_NICKNAME);
     ri.level = adf.read_unsigned_short();
@@ -11,6 +10,5 @@ P_RoleInfo::RoleInfo P_RoleInfo::read_external(ADF& adf){
     ri.position = adf.read_point();
     ri.direction = adf.read_signed_short();
     ri.has_pet = adf.read_signed_byte();
-    return ri;
 }
 

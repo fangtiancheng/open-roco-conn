@@ -1,7 +1,9 @@
 #pragma once
 #include <array>
-#include "adf.hpp"
-
+#include "base/rf_base.hpp"
+#include <cstdint>
+#include <string>
+#include <string_view>
 
 class PropertyDes: public RFBase{
 public:

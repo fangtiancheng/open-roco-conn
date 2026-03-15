@@ -1,5 +1,7 @@
 #pragma once
-#include "adf.hpp"
+#include "base/rf_base.hpp"
+#include "adf_protocol/byte_array.hpp"
+#include <cstdint>
 
 class P_BagSpiritSkillData: public RFBase{
 public:
@@ -10,7 +12,7 @@ public:
         uint8_t pp_left;
         uint8_t is_heredity;
         int des = 0;// TODO
-    };
-    static BagSpiritSkillData read(ADF& adf);
+    } data;
+    void read(ByteArray&);
 };
 

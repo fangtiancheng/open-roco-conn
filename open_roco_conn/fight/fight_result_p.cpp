@@ -1,0 +1,1 @@
+#include "fight_result_p.hpp"

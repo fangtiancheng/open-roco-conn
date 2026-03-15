@@ -1,8 +1,8 @@
 #include "protocol_helper.hpp"
-#include "define.hpp"
+#include "base/define.hpp"
 
-ProtocolHelper::RoleData ProtocolHelper::read_role_data(ADF& e) {
-    RoleData n;
+void ProtocolHelper::read_role_data(ByteArray& e) {
+    auto& n = role_data;
     n.avatar_type = n.uin = n.id = e.read_unsigned_int();
     n.role_type = (n.uin > 10000) ? RoleData::MEMBER : RoleData::GUEST;
     n.nick_name = e.read_chars(Define::L_NICKNAME);
@@ -67,6 +67,4 @@ ProtocolHelper::RoleData ProtocolHelper::read_role_data(ADF& e) {
         n.da_namebg = e.read_unsigned_int();
         n.da_popup = e.read_unsigned_int();
     }
-
-    return n;
 }

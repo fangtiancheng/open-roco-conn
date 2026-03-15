@@ -1,10 +1,14 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include "rf_base.hpp"
+using point_t = std::pair<int16_t, int16_t>;
 
-
-class Define{
+class Define: public RFBase{
 public:
+    const std::string_view get_param1() override{return "eb281h8zFBPKb2M3ZNLIU0k";}
+    const std::string_view get_param2() override{return "Define";}
+
     inline static constexpr bool IS_DEBUG = false;
     inline static constexpr std::string_view ANGEL_VERSION = "0.1";
     inline static constexpr std::string_view AVATAR_VERSION = "0.1";
@@ -29,6 +33,8 @@ public:
     inline static constexpr std::string_view COMM_ROOT = "https://res.17roco.qq.com/";
     inline static constexpr std::string_view NPC_RES_ROOT = "https://res.17roco.qq.com/res/npc/";
     inline static constexpr std::string_view H5_RES_ROOT = "https://res.17roco.qq.com/res/h5/";
+    inline static constexpr std::string_view CDN = "https://res.17roco.qq.com/h5/cdn/";
+    inline static constexpr std::string_view FLASH_CDN = "https://res.17roco.qq.com/conf/";
     inline static constexpr uint16_t POLICYPORT = 843;
     inline static constexpr std::string_view CHARSET = "gb2312";
     inline static constexpr int L_NICKNAME = 16;
