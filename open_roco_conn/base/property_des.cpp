@@ -1,12 +1,12 @@
 #include "property_des.hpp"
 
-std::string PropertyDes::get_temper_str(int8_t temper) {
+std::string PropertyDes::get_temper_str(uint8_t temper) {
     if (temper > 0 && temper <= TEMPERS.size())
         return std::string(TEMPERS[temper - 1]);
     return "未知";
 }
 
-std::string PropertyDes::get_temper_des_html_str(int8_t temper) {
+std::string PropertyDes::get_temper_des_html_str(uint8_t temper) {
     if (0 < temper && temper <= 20) {
         const auto& p = TEMPER_DES[temper - 1];
         return std::string(p.first) + "↑，" + std::string(p.second) + "↓";

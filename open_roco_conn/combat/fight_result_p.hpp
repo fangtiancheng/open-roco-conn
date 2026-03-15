@@ -1,5 +1,5 @@
 #pragma once
-#include "adf.hpp"
+#include "base/rf_base.hpp"
 
 class FightResultP : public RFBase{
 public:

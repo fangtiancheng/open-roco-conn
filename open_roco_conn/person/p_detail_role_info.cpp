@@ -2,6 +2,7 @@
 #include "base/define.hpp"
 
 void P_DetailRoleInfo::read_external(ByteArray &adf) {
+    auto& info = *this;
     info.sex = adf.read_signed_byte();
     info.nick_name = adf.read_chars(Define::L_NICKNAME);
     info.level = adf.read_unsigned_short();

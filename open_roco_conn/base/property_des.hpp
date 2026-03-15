@@ -10,8 +10,8 @@ public:
     const std::string_view get_param1() override{return "092dbSbXCFHGoiInB3iwUzI";}
     const std::string_view get_param2() override{return "PropertyDes";}
 
-    static std::string get_temper_str(int8_t temper);
-    static std::string get_temper_des_html_str(int8_t temper);
+    static std::string get_temper_str(uint8_t temper);
+    static std::string get_temper_des_html_str(uint8_t temper);
     static std::string get_sex_str(uint8_t sex);
     static inline constexpr std::array<std::string_view, 25>
     TEMPERS = {

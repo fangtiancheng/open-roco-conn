@@ -1,8 +1,13 @@
-#include "protocol_helper.hpp"
-#include "base/define.hpp"
+#include "role_data.hpp"
 
-void ProtocolHelper::read_role_data(ByteArray& e) {
-    auto& n = role_data;
+std::string RoleData::to_string() const {
+    return "[RoleData] id = " + std::to_string(id) +
+           ", uin: " + std::to_string(uin) +
+           ", nickName: " + nick_name + "]";
+}
+
+void RoleData::read_role_data(ByteArray& e) {
+    auto& n = *this;
     n.avatar_type = n.uin = n.id = e.read_unsigned_int();
     n.role_type = (n.uin > 10000) ? RoleData::MEMBER : RoleData::GUEST;
     n.nick_name = e.read_chars(Define::L_NICKNAME);
@@ -48,12 +53,12 @@ void ProtocolHelper::read_role_data(ByteArray& e) {
     n.selected_medal = e.read_unsigned_byte();
     n.footprint_id = e.read_unsigned_int();
 
-    if (e.bytes_available()) {
+    if (e.bytes_available(1)) {
         n.namebg_id = e.read_unsigned_int();
         n.paopao_id = e.read_unsigned_int();
     }
 
-    if (e.bytes_available()) {
+    if (e.bytes_available(1)) {
         n.dazzle_avatar = (e.read_unsigned_byte() == 1);
         n.da_magic = e.read_unsigned_int();
         n.da_ring = e.read_unsigned_int();

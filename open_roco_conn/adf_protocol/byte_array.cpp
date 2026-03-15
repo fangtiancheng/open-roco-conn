@@ -3,23 +3,21 @@
 #include <iostream>
 
 void ByteArray::allocate(size_t size) {
-    _buffer.reserve(size);
+    _buffer.resize(size);
 }
 
-
-
-void ByteArray::check_available(size_t bytes_needed) {
-    if (byte_offset + bytes_needed > _buffer.size()) {
+void ByteArray::check_available_throw(size_t bytes_needed) const {
+    if (!bytes_available(bytes_needed)) {
         throw std::out_of_range("ADF read overflow: not enough bytes");
     }
 }
 
 template<typename T>
 T ByteArray::read_raw() {
-    check_available(sizeof(T));
+    check_available_throw(sizeof(T));
     T value = 0;
     for (size_t i = 0; i < sizeof(T); ++i) {
-        value |= static_cast<T>(_buffer[byte_offset++]) << (8 * i);
+        value |= static_cast<T>(_buffer[_byte_offset++]) << (8 * i);
     }
     return value;
 }
@@ -27,13 +25,13 @@ T ByteArray::read_raw() {
 template<typename T>
 void ByteArray::write_raw(T value) {
     for (size_t i = 0; i < sizeof(T); ++i) {
-        _buffer.at(byte_offset++) = static_cast<uint8_t>((value >> (8 * i)) & 0xFF);
+        _buffer.at(_byte_offset++) = static_cast<uint8_t>((value >> (8 * i)) & 0xFF);
     }// 这样写是对的吗?
 }
 
 uint8_t ByteArray::read_unsigned_byte() {
-    check_available(1);
-    return _buffer[byte_offset++];
+    check_available_throw(1);
+    return _buffer[_byte_offset++];
 }
 
 void ByteArray::write_unsigned_byte(uint8_t value) {
@@ -81,16 +79,20 @@ void ByteArray::write_signed_int(int32_t value) {
 }
 
 void ByteArray::skip(size_t bytes) {
-    check_available(bytes);
-    byte_offset += bytes;
+    check_available_throw(bytes);
+    _byte_offset += bytes;
 }
 
 void ByteArray::reset() {
-    byte_offset = 0;
+    _byte_offset = 0;
 }
 
 size_t ByteArray::position() const {
-    return byte_offset;
+    return _byte_offset;
+}
+
+size_t ByteArray::length() const {
+    return _length;
 }
 
 std::pair<int16_t, int16_t> ByteArray::read_point(){
@@ -107,6 +109,36 @@ std::string ByteArray::read_chars(size_t len) {
 
 }
 
+void ByteArray::read_bytes(ByteArray& dest, size_t dest_idx, size_t len) {
+    throw "WIP, bug";
+    if (len == 0) {
+        len = _buffer.size() - _byte_offset;
+    }
+    check_available_throw(len);
+    if (!dest.bytes_available(dest_idx + len)) {
+        dest.allocate(dest_idx + len);
+    }
+    for (size_t i = 0; i < len; ++i) {
+        dest._buffer[dest_idx + i] = _buffer[_byte_offset + i];
+    }
+    _byte_offset += len;
+}
+
+void ByteArray::write_bytes(const ByteArray& src, size_t src_idx, size_t len) {
+    throw "WIP, bug";
+    if (len == 0) {
+        len = src._buffer.size() - src_idx;
+    }
+    src.check_available_throw(len);
+    if (!bytes_available(_byte_offset + len)) {
+        allocate(_byte_offset + len);
+    }
+    for (size_t i = 0; i < len; ++i) {
+        _buffer[_byte_offset + i] = src._buffer[src_idx + i];
+    }
+    _byte_offset += len;
+}
+
 bool ByteArray::read_boolean() {
     auto b = read_unsigned_byte();
     switch (b) {
@@ -118,6 +150,6 @@ bool ByteArray::read_boolean() {
     }
 }
 
-bool ByteArray::bytes_available() const {
-    return byte_offset < _buffer.size();
+bool ByteArray::bytes_available(size_t size) const {
+    return _byte_offset + size <= _buffer.size();
 }

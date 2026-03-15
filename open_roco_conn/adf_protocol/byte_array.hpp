@@ -6,8 +6,9 @@ class ByteArray: public RFBase{
 protected:
     std::vector<uint32_t> _buffer;
     bool little_endian;
-    size_t byte_offset = 0;
-    void check_available(size_t bytes_needed);
+    size_t _byte_offset = 0;
+    size_t _length = 0;
+    void check_available_throw(size_t bytes_needed) const;
     template<typename T> T read_raw();
     template<typename T> void write_raw(T value);
 public:
@@ -18,7 +19,7 @@ public:
     const std::string_view get_param1() override{return "6aa3clmfLZDQLiqwyNrV2Kk";}
     const std::string_view get_param2() override{return "ByteArray";}
 
-    void allocate(size_t);
+    void allocate(size_t len = 8192);
     bool read_boolean();
     uint8_t read_unsigned_byte();
     void write_unsigned_byte(uint8_t);
@@ -34,12 +35,16 @@ public:
     void write_signed_int(int32_t);
     point_t read_point();
     void write_point(const point_t&);
-    std::vector<uint8_t> read_multi_byte(size_t, std::string_view);
+    std::string read_multi_byte(size_t, std::string_view);
+    size_t write_multi_byte(const std::string&, std::string_view);
     std::string read_chars(size_t);
     std::string read_fixed_chars(size_t);
-    bool bytes_available() const;
+    void read_bytes(ByteArray& dest, size_t dst_idx, size_t len);
+    void write_bytes(const ByteArray& src, size_t src_idx, size_t len);
+    bool bytes_available(size_t) const;
 
     void skip(size_t bytes);
     void reset();
     size_t position() const;
+    size_t length() const;
 };
