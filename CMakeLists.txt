@@ -88,11 +88,22 @@ add_library(combat STATIC
 target_include_directories(combat PRIVATE ${SRC_DIR} ${COMBAT_DIR})
 target_link_libraries(combat PRIVATE base adf_protocol)
 
+set(EVENT_DIR ${SRC_DIR}/event)
+add_library(event STATIC
+    ${EVENT_DIR}/event_dispatcher.cpp
+)
+target_include_directories(event PRIVATE ${SRC_DIR} ${EVENT_DIR})
+target_link_libraries(event PRIVATE base adf_protocol)
+
 #global
 set(GLOBAL_DIR ${SRC_DIR}/global)
 add_library(global STATIC
+    ${GLOBAL_DIR}/angle_event_manager.cpp
+    ${GLOBAL_DIR}/angle_main.cpp
+    ${GLOBAL_DIR}/global.cpp
     ${GLOBAL_DIR}/global_api.cpp
     ${GLOBAL_DIR}/global_manager.cpp
+    ${GLOBAL_DIR}/user_data.cpp
 )
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
 target_link_libraries(global PRIVATE base adf_protocol)
