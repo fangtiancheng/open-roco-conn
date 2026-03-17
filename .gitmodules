@@ -1,0 +1,6 @@
+[submodule "third_party/websocketpp"]
+	path = third_party/websocketpp
+	url = git@github.com:zaphoyd/websocketpp.git
+[submodule "third_party/cpp-httplib"]
+	path = third_party/cpp-httplib
+	url = git@github.com:yhirose/cpp-httplib.git

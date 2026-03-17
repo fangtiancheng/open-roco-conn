@@ -14,7 +14,7 @@ public:
 
 
 //    void read_object(ByteArray&); //TODO
-    P_ReturnCode read_code(ByteArray& );
-    RoleData read_role_data(ByteArray&);
+    static P_ReturnCode read_code(ByteArray& );
+    static RoleData read_role_data(ByteArray&);
 };
 

@@ -8,14 +8,11 @@
 #include "byte_array.hpp"
 
 class ADF: public RFBase{
-private:
-    ADFHead head;
-    ByteArray body;
-
 public:
     const std::string_view get_param1() override{return "4c4bdiyqNpDYbBHA/inxurd";}
     const std::string_view get_param2() override{return "ADF";}
-
+    ADFHead head;
+    ByteArray body;
     void read_external(ByteArray&);
     void write_external(ByteArray&);
 };

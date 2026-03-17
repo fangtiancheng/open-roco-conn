@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(open_roco_conn)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/open_roco_conn)
+
+add_subdirectory(third_party/websocketpp)
 
 # base
 set(BASE_DIR ${SRC_DIR}/base)
@@ -13,12 +15,18 @@ add_library(base STATIC
 )
 target_include_directories(base PRIVATE ${SRC_DIR} ${BASE_DIR})
 
+set(TRANS_DIR ${SRC_DIR}/transmission)
+add_library(transmission STATIC
+    ${TRANS_DIR}/tcp_transmission.cpp
+)
+target_include_directories(transmission PRIVATE ${SRC_DIR} ${TRANS_DIR})
+target_link_libraries(transmission PRIVATE base)
+
 # adf
 set(ADF_DIR ${SRC_DIR}/adf_protocol)
 add_library(adf_protocol STATIC
     ${ADF_DIR}/adf.cpp
     ${ADF_DIR}/adf_cmds_type.hpp
-    ${ADF_DIR}/adf_h5.cpp
     ${ADF_DIR}/adf_head.cpp
     ${ADF_DIR}/adf_processors.cpp
     ${ADF_DIR}/angel_data_event.cpp
@@ -95,6 +103,18 @@ add_library(event STATIC
 target_include_directories(event PRIVATE ${SRC_DIR} ${EVENT_DIR})
 target_link_libraries(event PRIVATE base adf_protocol)
 
+set(LOGIN_DIR ${SRC_DIR}/login)
+add_library(login STATIC
+    ${LOGIN_DIR}/adf_h5.cpp
+    ${LOGIN_DIR}/login_data_body.cpp
+    ${LOGIN_DIR}/login_data_processor.cpp
+    ${LOGIN_DIR}/login_data_repply.cpp
+    ${LOGIN_DIR}/server_info.hpp
+    ${LOGIN_DIR}/server_keywords.hpp
+)
+target_include_directories(login PRIVATE ${SRC_DIR} ${LOGIN_DIR})
+target_link_libraries(login PRIVATE base adf_protocol person)
+
 #global
 set(GLOBAL_DIR ${SRC_DIR}/global)
 add_library(global STATIC
@@ -103,7 +123,24 @@ add_library(global STATIC
     ${GLOBAL_DIR}/global.cpp
     ${GLOBAL_DIR}/global_api.cpp
     ${GLOBAL_DIR}/global_manager.cpp
+    ${GLOBAL_DIR}/global_timer.cpp
     ${GLOBAL_DIR}/user_data.cpp
+    ${GLOBAL_DIR}/web_socket_client.cpp
 )
+
+set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
+add_library(httpreq STATIC
+    ${HTTPREQ_DIR}/http_request.cpp
+)
+target_include_directories(httpreq PRIVATE ${SRC_DIR} ${HTTPREQ_DIR})
+target_link_libraries(httpreq PRIVATE base)
+
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
-target_link_libraries(global PRIVATE base adf_protocol)
+target_link_libraries(global PRIVATE base adf_protocol websocketpp)
+
+set(SPIRIT_BOOK_DIR ${SRC_DIR}/spirit_book)
+add_library(spirit_book STATIC
+    ${SPIRIT_BOOK_DIR}/spirit_books_conf_loader.cpp
+)
+target_include_directories(spirit_book PRIVATE ${SRC_DIR} ${SPIRIT_BOOK_DIR})
+target_link_libraries(spirit_book PRIVATE base adf_protocol)

@@ -61,6 +61,7 @@ public:
     uint32_t da_footprint = 0;
     uint32_t da_namebg = 0;
     uint32_t da_popup = 0;
+    uint32_t flag = 0;
 
     static constexpr bool MEMBER = true;
     static constexpr bool GUEST = false;

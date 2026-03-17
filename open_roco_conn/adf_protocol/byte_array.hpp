@@ -38,6 +38,7 @@ public:
     std::string read_multi_byte(size_t, std::string_view);
     size_t write_multi_byte(const std::string&, std::string_view);
     std::string read_chars(size_t);
+    void write_chars(const std::string&, size_t len);
     std::string read_fixed_chars(size_t);
     void read_bytes(ByteArray& dest, size_t dst_idx, size_t len);
     void write_bytes(const ByteArray& src, size_t src_idx, size_t len);
