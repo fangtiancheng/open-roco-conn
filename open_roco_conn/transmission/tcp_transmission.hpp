@@ -4,16 +4,23 @@
 #include <string>
 #include <string_view>
 #include <vector>
-struct TCPDataType{
-    std::string string = "String";
-    std::string custom_string = "CustomString";
-    std::string uint32 = "UInt32";
-    std::string uint16 = "UInt16";
-    std::string uint8 = "UInt8";
-    std::string uint64 = "UInt64";
-    std::string boolean = "Boolean";
-    std::string tcp_data_type = "TCPDataType";
-    std::string array = "Array";
+
+enum class TCPDataType {
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Boolean,
+    String,
+    CustomString,
+    Buff,
+    TCPDataType,
+    Array
+};
+
+enum class Charset {
+    UTF8,
+    GBK
 };
 
 class TCPTransmission : public RFBase {

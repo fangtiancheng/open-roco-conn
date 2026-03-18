@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.15)
 project(open_roco_conn)
 set(CMAKE_CXX_STANDARD 20)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/open_roco_conn)
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 
-add_subdirectory(third_party/websocketpp)
+find_package(Boost REQUIRED COMPONENTS system url json)
 
 # base
 set(BASE_DIR ${SRC_DIR}/base)
@@ -12,6 +15,7 @@ add_library(base STATIC
     ${BASE_DIR}/define.cpp
     ${BASE_DIR}/rf_base.cpp
     ${BASE_DIR}/property_des.cpp
+    ${BASE_DIR}/unicode_translator.hpp
 )
 target_include_directories(base PRIVATE ${SRC_DIR} ${BASE_DIR})
 
@@ -32,6 +36,7 @@ add_library(adf_protocol STATIC
     ${ADF_DIR}/angel_data_event.cpp
     ${ADF_DIR}/bag_spirit_skill_data.cpp
     ${ADF_DIR}/byte_array.cpp
+    ${ADF_DIR}/byte_buffer.cpp
 )
 target_include_directories(adf_protocol PRIVATE ${SRC_DIR} ${ADF_DIR})
 target_link_libraries(adf_protocol PRIVATE base)
@@ -133,7 +138,7 @@ add_library(httpreq STATIC
     ${HTTPREQ_DIR}/http_request.cpp
 )
 target_include_directories(httpreq PRIVATE ${SRC_DIR} ${HTTPREQ_DIR})
-target_link_libraries(httpreq PRIVATE base)
+target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json)
 
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
 target_link_libraries(global PRIVATE base adf_protocol websocketpp)
