@@ -105,7 +105,9 @@ target_link_libraries(combat PRIVATE base adf_protocol)
 
 set(EVENT_DIR ${SRC_DIR}/event)
 add_library(event STATIC
+    ${EVENT_DIR}/base_event.cpp
     ${EVENT_DIR}/event_dispatcher.cpp
+    ${EVENT_DIR}/tcp_conn_event.cpp
 )
 target_include_directories(event PRIVATE ${SRC_DIR} ${EVENT_DIR})
 target_link_libraries(event PRIVATE base adf_protocol)
@@ -134,6 +136,8 @@ add_library(global STATIC
     ${GLOBAL_DIR}/user_data.cpp
     ${GLOBAL_DIR}/web_socket_client.cpp
 )
+target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
+target_link_libraries(global PRIVATE base adf_protocol websocketpp)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
@@ -142,8 +146,12 @@ add_library(httpreq STATIC
 target_include_directories(httpreq PRIVATE ${SRC_DIR} ${HTTPREQ_DIR})
 target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json OpenSSL::SSL)
 
-target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
-target_link_libraries(global PRIVATE base adf_protocol websocketpp)
+set(WEBSOCK_DIR ${SRC_DIR}/websock)
+add_library(websock STATIC
+    ${WEBSOCK_DIR}/angel_tcp_connection.cpp
+)
+target_include_directories(websock PRIVATE ${SRC_DIR} ${WEBSOCK_DIR})
+target_link_libraries(websock PRIVATE base adf_protocol global)
 
 set(SPIRIT_BOOK_DIR ${SRC_DIR}/spirit_book)
 add_library(spirit_book STATIC

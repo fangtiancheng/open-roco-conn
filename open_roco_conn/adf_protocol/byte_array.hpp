@@ -19,7 +19,7 @@ public:
     const std::string_view get_param1() override{return "6aa3clmfLZDQLiqwyNrV2Kk";}
     const std::string_view get_param2() override{return "ByteArray";}
 
-    void allocate(size_t len = 8192);
+    virtual void allocate(size_t len = 8192);
     bool read_boolean();
     uint8_t read_unsigned_byte();
     void write_unsigned_byte(uint8_t);
@@ -42,8 +42,8 @@ public:
     std::string read_fixed_chars(size_t);
     void read_bytes(ByteArray& dest, size_t dst_idx, size_t len);
     void write_bytes(const ByteArray& src, size_t src_idx, size_t len);
-    bool bytes_available(size_t) const;
-
+    bool is_bytes_available(size_t) const;
+    size_t bytes_available() const;
     void skip(size_t bytes);
     void reset();
     size_t position() const;

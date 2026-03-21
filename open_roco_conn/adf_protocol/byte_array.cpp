@@ -7,7 +7,7 @@ void ByteArray::allocate(size_t size) {
 }
 
 void ByteArray::check_available_throw(size_t bytes_needed) const {
-    if (!bytes_available(bytes_needed)) {
+    if (!is_bytes_available(bytes_needed)) {
         throw std::out_of_range("ADF read overflow: not enough bytes");
     }
 }
@@ -106,6 +106,7 @@ void ByteArray::write_point(const point_t & point) {
 
 std::string ByteArray::read_chars(size_t len) {
     static_assert(Define::CHARSET == "gb2312", "charset must be gb2312");
+    throw "TODO";
 
 }
 
@@ -115,7 +116,7 @@ void ByteArray::read_bytes(ByteArray& dest, size_t dest_idx, size_t len) {
         len = _buffer.size() - _byte_offset;
     }
     check_available_throw(len);
-    if (!dest.bytes_available(dest_idx + len)) {
+    if (!dest.is_bytes_available(dest_idx + len)) {
         dest.allocate(dest_idx + len);
     }
     for (size_t i = 0; i < len; ++i) {
@@ -130,7 +131,7 @@ void ByteArray::write_bytes(const ByteArray& src, size_t src_idx, size_t len) {
         len = src._buffer.size() - src_idx;
     }
     src.check_available_throw(len);
-    if (!bytes_available(_byte_offset + len)) {
+    if (!is_bytes_available(_byte_offset + len)) {
         allocate(_byte_offset + len);
     }
     for (size_t i = 0; i < len; ++i) {
@@ -150,6 +151,10 @@ bool ByteArray::read_boolean() {
     }
 }
 
-bool ByteArray::bytes_available(size_t size) const {
+bool ByteArray::is_bytes_available(size_t size) const {
     return _byte_offset + size <= _buffer.size();
+}
+
+size_t ByteArray::bytes_available() const {
+    return _buffer.size() - _byte_offset;
 }

@@ -53,12 +53,12 @@ void RoleData::read_role_data(ByteArray& e) {
     n.selected_medal = e.read_unsigned_byte();
     n.footprint_id = e.read_unsigned_int();
 
-    if (e.bytes_available(1)) {
+    if (e.is_bytes_available(1)) {
         n.namebg_id = e.read_unsigned_int();
         n.paopao_id = e.read_unsigned_int();
     }
 
-    if (e.bytes_available(1)) {
+    if (e.is_bytes_available(1)) {
         n.dazzle_avatar = (e.read_unsigned_byte() == 1);
         n.da_magic = e.read_unsigned_int();
         n.da_ring = e.read_unsigned_int();
