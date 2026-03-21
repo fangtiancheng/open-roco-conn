@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(open_roco_conn)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/open_roco_conn)
 if(MSVC)
     add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0601)
