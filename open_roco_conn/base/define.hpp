@@ -43,6 +43,7 @@ public:
     inline static constexpr int AVATAR_MIN_NUM = 15;
     inline static constexpr int AVATAR_DELAY = 2000;
     inline static constexpr uint8_t SET_AVATA_VISIBLE = 1;
+    inline static constexpr std::string_view USER_AGENT = "open_roco_conn";
 
     inline static constexpr std::string_view PROTOCOL_VERSION = "https";
 

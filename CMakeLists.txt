@@ -3,10 +3,12 @@ project(open_roco_conn)
 set(CMAKE_CXX_STANDARD 20)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/open_roco_conn)
 if(MSVC)
-    add_compile_options(/utf-8)
+    add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0601)
 endif()
 
-find_package(Boost REQUIRED COMPONENTS system url json)
+find_package(Boost CONFIG REQUIRED COMPONENTS system url json)
+find_package(OpenSSL REQUIRED)
+add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/certify)
 
 # base
 set(BASE_DIR ${SRC_DIR}/base)
@@ -138,7 +140,7 @@ add_library(httpreq STATIC
     ${HTTPREQ_DIR}/http_request.cpp
 )
 target_include_directories(httpreq PRIVATE ${SRC_DIR} ${HTTPREQ_DIR})
-target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json)
+target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json OpenSSL::SSL)
 
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
 target_link_libraries(global PRIVATE base adf_protocol websocketpp)
@@ -149,3 +151,10 @@ add_library(spirit_book STATIC
 )
 target_include_directories(spirit_book PRIVATE ${SRC_DIR} ${SPIRIT_BOOK_DIR})
 target_link_libraries(spirit_book PRIVATE base adf_protocol)
+
+add_executable(test
+    ./open_roco_conn/test.cpp
+)
+target_link_libraries(test PRIVATE
+    Boost::headers Boost::url Boost::json OpenSSL::SSL
+)

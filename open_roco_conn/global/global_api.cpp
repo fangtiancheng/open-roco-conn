@@ -1,7 +1,6 @@
 #include "global_api.hpp"
 #include <chrono>
-#include <iomanip>
-#include <sstream>
+#include <format>
 
 long long GlobalAPI::get_timer() {
     auto now = std::chrono::system_clock::now();
@@ -15,21 +14,18 @@ std::string GlobalAPI::get_timer_format() {
     auto now = std::chrono::system_clock::now();
     std::time_t time = std::chrono::system_clock::to_time_t(now);
 
-    std::tm localTime;
+    std::tm local_time;
 #ifdef _WIN32
-    localtime_s(&localTime, &time);  // Windows
+    localtime_s(&local_time, &time);  // Windows
 #else
-    localtime_r(&time, &localTime);  // Linux/Mac
+    localtime_r(&time, &local_time);  // Linux/Mac
 #endif
-
-    std::ostringstream oss;
-    oss << "--timer:==>"
-        << (localTime.tm_year + 1900) << "-"
-        << std::setw(2) << std::setfill('0') << (localTime.tm_mon + 1) << "-"
-        << std::setw(2) << std::setfill('0') << localTime.tm_mday << " "
-        << std::setw(2) << std::setfill('0') << localTime.tm_hour << ":"
-        << std::setw(2) << std::setfill('0') << localTime.tm_min << ":"
-        << std::setw(2) << std::setfill('0') << localTime.tm_sec;
-
-    return oss.str();
+    return std::format(
+        "--timer:==>{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}",
+        local_time.tm_year + 1900,
+        local_time.tm_mon + 1,
+        local_time.tm_mday,
+        local_time.tm_hour,
+        local_time.tm_min,
+        local_time.tm_sec);
 }
