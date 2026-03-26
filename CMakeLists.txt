@@ -144,6 +144,8 @@ target_link_libraries(global PRIVATE base adf_protocol websocketpp Boost::header
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
     ${HTTPREQ_DIR}/http_request.cpp
+    ${HTTPREQ_DIR}/angel_url_loader.cpp
+    ${HTTPREQ_DIR}/url_loader.cpp
 )
 target_include_directories(httpreq PRIVATE ${SRC_DIR} ${HTTPREQ_DIR})
 target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json OpenSSL::SSL)
