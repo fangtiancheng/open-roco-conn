@@ -146,7 +146,7 @@ add_library(global STATIC
     ${GLOBAL_DIR}/web_socket_client.cpp
 )
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
-target_link_libraries(global PRIVATE base adf_protocol websocketpp)
+target_link_libraries(global PRIVATE base adf_protocol websocketpp Boost::headers)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC

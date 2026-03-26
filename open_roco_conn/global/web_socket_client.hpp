@@ -1,7 +1,9 @@
 #pragma once
 #include "base/rf_base.hpp"
+#include <boost/asio/awaitable.hpp>
+#include <atomic>
 #include <cstdint>
-#include <functional>
+#include <deque>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -18,9 +20,6 @@ public:
         connected = 2
     };
 
-    using send_callback = std::function<void(const std::vector<uint8_t>&, uint32_t)>;
-    using message_callback = std::function<void(const std::vector<uint8_t>&)>;
-
     static constexpr std::string_view timer_websocket_client = "web_socket_client_timer";
 
     WebSocketClient();
@@ -29,14 +28,12 @@ public:
     void set_name(const std::string& name);
     std::string name() const;
 
-    void set_send_callback(send_callback callback);
-    void set_message_callback(message_callback callback);
-
-    void connect(const std::string& url);
+    boost::asio::awaitable<bool> connect_async(std::string url);
     void disconnect();
-    void send(const std::vector<uint8_t>& payload, uint32_t cmd_id = 0);
-    void on_message(const std::vector<uint8_t>& payload);
-    void say_hello();
+    boost::asio::awaitable<void> send_async(std::vector<uint8_t> payload, uint32_t cmd_id = 0);
+    boost::asio::awaitable<std::vector<uint8_t>> recv_async();
+    boost::asio::awaitable<void> heartbeat_loop();
+    void push_incoming(std::vector<uint8_t> payload);
 
     state connection_state() const;
 
@@ -44,7 +41,7 @@ private:
     std::string name_ = "WebSocketClient";
     std::string url_;
     state state_ = state::disconnected;
-    send_callback send_callback_;
-    message_callback message_callback_;
+    std::atomic<bool> stop_heartbeat_{false};
+    std::deque<std::vector<uint8_t>> incoming_queue_;
     mutable std::mutex mutex_;
 };

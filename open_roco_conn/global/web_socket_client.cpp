@@ -1,12 +1,14 @@
 #include "web_socket_client.hpp"
 #include "adf_protocol/adf_cmds_type.hpp"
-#include "global_timer.hpp"
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/this_coro.hpp>
+#include <boost/asio/use_awaitable.hpp>
 #include <chrono>
 #include <iostream>
-#include <utility>
+
+using namespace std::chrono_literals;
 
 WebSocketClient::WebSocketClient() {
-    GlobalTimer::init();
 }
 
 WebSocketClient::~WebSocketClient() {
@@ -23,85 +25,94 @@ std::string WebSocketClient::name() const {
     return name_;
 }
 
-void WebSocketClient::set_send_callback(send_callback callback) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    send_callback_ = std::move(callback);
-}
+boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
+    auto executor = co_await boost::asio::this_coro::executor;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        url_ = std::move(url);
+        state_ = state::connecting;
+        stop_heartbeat_.store(false);
+        std::cout << "tcp reconnect WebSocketClient\n"
+                  << "connect : " << name_ << "\n"
+                  << "url: " << url_ << std::endl;
+    }
+    boost::asio::steady_timer timer(executor);
+    timer.expires_after(1ms);
+    co_await timer.async_wait(boost::asio::use_awaitable);
 
-void WebSocketClient::set_message_callback(message_callback callback) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    message_callback_ = std::move(callback);
-}
-
-void WebSocketClient::connect(const std::string &url) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    url_ = url;
-    state_ = state::connecting;
-
-    std::cout << "tcp reconnect WebSocketClient\n"
-              << "connect : " << name_ << "\n"
-              << "url: " << url_ << std::endl;
-
-    state_ = state::connected;
-
-    auto& timer = GlobalTimer::instance();
-    timer.unregister_timer(std::string(timer_websocket_client));
-    timer.register_timer(
-        std::string(timer_websocket_client),
-        std::chrono::milliseconds(5000),
-        [this]() { say_hello(); },
-        false,
-        true
-    );
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        state_ = state::connected;
+    }
+    co_return true;
 }
 
 void WebSocketClient::disconnect() {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_ = state::disconnected;
-    }
-    GlobalTimer::instance().unregister_timer(std::string(timer_websocket_client));
+    std::lock_guard<std::mutex> lock(mutex_);
+    state_ = state::disconnected;
+    stop_heartbeat_.store(true);
+    incoming_queue_.clear();
 }
 
-void WebSocketClient::send(const std::vector<uint8_t>& payload, const uint32_t cmd_id) {
-    send_callback send_callback_copy;
+boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> payload, const uint32_t cmd_id) {
+    auto executor = co_await boost::asio::this_coro::executor;
+    boost::asio::steady_timer timer(executor);
     state current_state;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         current_state = state_;
-        send_callback_copy = send_callback_;
     }
 
     if (current_state != state::connected) {
-        return;
+        co_return;
     }
-    if (send_callback_copy) {
-        send_callback_copy(payload, cmd_id);
-        return;
-    }
+
+    timer.expires_after(1ms);
+    co_await timer.async_wait(boost::asio::use_awaitable);
 
     std::cout << "cmd=0x" << std::hex << cmd_id << std::dec
               << " send bytes: " << payload.size() << std::endl;
+    co_return;
 }
 
-void WebSocketClient::on_message(const std::vector<uint8_t>& payload) {
-    message_callback callback;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        callback = message_callback_;
-    }
-    if (callback) {
-        callback(payload);
+boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {
+    auto executor = co_await boost::asio::this_coro::executor;
+    boost::asio::steady_timer timer(executor);
+    while (true) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!incoming_queue_.empty()) {
+                std::vector<uint8_t> payload = std::move(incoming_queue_.front());
+                incoming_queue_.pop_front();
+                co_return payload;
+            }
+            if (state_ != state::connected) {
+                co_return std::vector<uint8_t>{};
+            }
+        }
+
+        timer.expires_after(20ms);
+        co_await timer.async_wait(boost::asio::use_awaitable);
     }
 }
 
-void WebSocketClient::say_hello() {
-    if (connection_state() != state::connected) {
-        return;
+boost::asio::awaitable<void> WebSocketClient::heartbeat_loop() {
+    auto executor = co_await boost::asio::this_coro::executor;
+    boost::asio::steady_timer timer(executor);
+    while (!stop_heartbeat_.load()) {
+        timer.expires_after(5s);
+        co_await timer.async_wait(boost::asio::use_awaitable);
+        if (connection_state() != state::connected || stop_heartbeat_.load()) {
+            break;
+        }
+        std::cout << "say_hello... " << name() << std::endl;
+        co_await send_async({}, ADFCmdsType::T_HELLO);
     }
+}
 
-    std::cout << "say_hello... " << name() << std::endl;
-    send({}, ADFCmdsType::T_HELLO);
+void WebSocketClient::push_incoming(std::vector<uint8_t> payload) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    incoming_queue_.push_back(std::move(payload));
 }
 
 WebSocketClient::state WebSocketClient::connection_state() const {
