@@ -6,7 +6,11 @@ if(MSVC)
     add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0601)
 endif()
 
-find_package(Boost CONFIG REQUIRED COMPONENTS system url json)
+find_package(Boost CONFIG REQUIRED COMPONENTS headers url json)
+if(NOT TARGET Boost::system)
+    add_library(Boost::system INTERFACE IMPORTED)
+    set_property(TARGET Boost::system PROPERTY INTERFACE_LINK_LIBRARIES Boost::headers)
+endif()
 find_package(OpenSSL REQUIRED)
 add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/certify)
 

@@ -18,10 +18,15 @@ endif()
 find_package(Boost
              CONFIG
              COMPONENTS
-                system
+                headers
                 filesystem
 				date_time
              REQUIRED)
+
+if (NOT TARGET Boost::system)
+    add_library(Boost::system INTERFACE IMPORTED)
+    set_property(TARGET Boost::system PROPERTY INTERFACE_LINK_LIBRARIES Boost::headers)
+endif()
 
 find_package (Threads)
 
