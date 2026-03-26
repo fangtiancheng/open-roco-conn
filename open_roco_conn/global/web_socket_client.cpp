@@ -36,6 +36,9 @@ boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
                   << "connect : " << name_ << "\n"
                   << "url: " << url_ << std::endl;
     }
+
+    tcp_connection_.connect(url_, AngelTcpConnection::PORT);
+
     boost::asio::steady_timer timer(executor);
     timer.expires_after(1ms);
     co_await timer.async_wait(boost::asio::use_awaitable);
@@ -51,7 +54,7 @@ void WebSocketClient::disconnect() {
     std::lock_guard<std::mutex> lock(mutex_);
     state_ = state::disconnected;
     stop_heartbeat_.store(true);
-    incoming_queue_.clear();
+    tcp_connection_.close();
 }
 
 boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> payload, const uint32_t cmd_id) {
@@ -70,8 +73,17 @@ boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> pa
     timer.expires_after(1ms);
     co_await timer.async_wait(boost::asio::use_awaitable);
 
+    ADF adf;
+    adf.head.cmd_id = cmd_id;
+    adf.body.allocate(payload.size());
+    for (const uint8_t byte : payload) {
+        adf.body.write_unsigned_byte(byte);
+    }
+    adf.body.reset();
+    auto sent = tcp_connection_.send_data(adf);
+
     std::cout << "cmd=0x" << std::hex << cmd_id << std::dec
-              << " send bytes: " << payload.size() << std::endl;
+              << " send bytes: " << sent.size() << std::endl;
     co_return;
 }
 
@@ -79,13 +91,13 @@ boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {
     auto executor = co_await boost::asio::this_coro::executor;
     boost::asio::steady_timer timer(executor);
     while (true) {
+        ADF adf;
+        if (tcp_connection_.try_pop_adf(adf)) {
+            co_return serialize_adf(adf);
+        }
+
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (!incoming_queue_.empty()) {
-                std::vector<uint8_t> payload = std::move(incoming_queue_.front());
-                incoming_queue_.pop_front();
-                co_return payload;
-            }
             if (state_ != state::connected) {
                 co_return std::vector<uint8_t>{};
             }
@@ -111,11 +123,35 @@ boost::asio::awaitable<void> WebSocketClient::heartbeat_loop() {
 }
 
 void WebSocketClient::push_incoming(std::vector<uint8_t> payload) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    incoming_queue_.push_back(std::move(payload));
+    ByteArray packet;
+    packet.allocate(payload.size());
+    for (const uint8_t byte : payload) {
+        packet.write_unsigned_byte(byte);
+    }
+    packet.reset();
+
+    auto ret = tcp_connection_.on_message(packet, false);
+    if (!ret.has_value()) {
+        std::cerr << "[WebSocketClient] push_incoming parse failed: " << ret.error() << std::endl;
+    }
 }
 
 WebSocketClient::state WebSocketClient::connection_state() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return state_;
+}
+
+std::vector<uint8_t> WebSocketClient::serialize_adf(const ADF& adf) {
+    ByteArray packet;
+    packet.allocate();
+    ADF copy = adf;
+    copy.write_external(packet);
+    packet.reset();
+
+    std::vector<uint8_t> bytes;
+    bytes.reserve(packet.length());
+    while (packet.bytes_available() > 0) {
+        bytes.push_back(packet.read_unsigned_byte());
+    }
+    return bytes;
 }

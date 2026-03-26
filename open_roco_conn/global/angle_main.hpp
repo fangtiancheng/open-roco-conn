@@ -1,6 +1,13 @@
 #pragma once
 #include "base/rf_base.hpp"
+#include "web_socket_client.hpp"
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
+#include <atomic>
 #include <functional>
+#include <optional>
+#include <thread>
 
 class AngleMain: public RFBase {
 public:
@@ -24,10 +31,18 @@ public:
     void finalize();
 
 private:
+    boost::asio::awaitable<void> async_bootstrap();
+    boost::asio::awaitable<void> recv_loop();
+
     bool initialized_ = false;
     bool is_render_ = true;
+    std::atomic<bool> stop_async_{false};
     hook on_initialize_;
     hook on_logined_;
     hook on_network_closed_;
     hook on_refresh_html_;
+    WebSocketClient web_socket_client_{};
+    boost::asio::io_context io_context_{};
+    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_{};
+    std::thread io_thread_{};
 };

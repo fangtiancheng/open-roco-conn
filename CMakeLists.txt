@@ -30,13 +30,6 @@ add_library(base STATIC
 )
 target_include_directories(base PRIVATE ${SRC_DIR} ${BASE_DIR})
 
-set(TRANS_DIR ${SRC_DIR}/transmission)
-add_library(transmission STATIC
-    ${TRANS_DIR}/tcp_transmission.cpp
-)
-target_include_directories(transmission PRIVATE ${SRC_DIR} ${TRANS_DIR})
-target_link_libraries(transmission PRIVATE base)
-
 # adf
 set(ADF_DIR ${SRC_DIR}/adf_protocol)
 add_library(adf_protocol STATIC
@@ -158,6 +151,7 @@ target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json
 set(WEBSOCK_DIR ${SRC_DIR}/websock)
 add_library(websock STATIC
     ${WEBSOCK_DIR}/angel_tcp_connection.cpp
+    ${WEBSOCK_DIR}/tcp_transmission.cpp
 )
 target_include_directories(websock PRIVATE ${SRC_DIR} ${WEBSOCK_DIR})
 target_link_libraries(websock PRIVATE base adf_protocol global)

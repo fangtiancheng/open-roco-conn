@@ -1,9 +1,9 @@
 #pragma once
 #include "base/rf_base.hpp"
+#include "websock/angel_tcp_connection.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <atomic>
 #include <cstdint>
-#include <deque>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -38,10 +38,12 @@ public:
     state connection_state() const;
 
 private:
+    static std::vector<uint8_t> serialize_adf(const ADF& adf);
+
     std::string name_ = "WebSocketClient";
     std::string url_;
     state state_ = state::disconnected;
     std::atomic<bool> stop_heartbeat_{false};
-    std::deque<std::vector<uint8_t>> incoming_queue_;
+    AngelTcpConnection tcp_connection_{};
     mutable std::mutex mutex_;
 };
