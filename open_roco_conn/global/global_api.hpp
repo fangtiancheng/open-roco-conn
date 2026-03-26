@@ -8,7 +8,9 @@ public:
     const std::string_view get_param2() override { return "GlobalAPI"; }
     static long long get_timer();
     static std::string get_timer_format();
-    bool is_login = false;
+    static void init();
+    static bool is_login();
+    static void set_is_login(bool value);
 //    a.gAngelSysAPI = void 0,
 //    a.gAngelUISystem = void 0,
 //    a.roleData = new RoleData(),

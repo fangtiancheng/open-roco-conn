@@ -2,6 +2,10 @@
 #include <chrono>
 #include <format>
 
+namespace {
+bool g_is_login = false;
+}
+
 long long GlobalAPI::get_timer() {
     auto now = std::chrono::system_clock::now();
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -28,4 +32,16 @@ std::string GlobalAPI::get_timer_format() {
         local_time.tm_hour,
         local_time.tm_min,
         local_time.tm_sec);
+}
+
+void GlobalAPI::init() {
+    g_is_login = false;
+}
+
+bool GlobalAPI::is_login() {
+    return g_is_login;
+}
+
+void GlobalAPI::set_is_login(const bool value) {
+    g_is_login = value;
 }

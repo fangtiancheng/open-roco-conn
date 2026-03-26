@@ -14,7 +14,6 @@
 #include <functional>
 
 class HttpRequest: public RFBase {
-    boost::asio::io_context io_ctx{};
     boost::asio::ssl::context ssl_ctx{boost::asio::ssl::context::tlsv12_client};
 public:
     HttpRequest() {

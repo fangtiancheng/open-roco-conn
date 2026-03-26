@@ -12,7 +12,12 @@ if(NOT TARGET Boost::system)
     set_property(TARGET Boost::system PROPERTY INTERFACE_LINK_LIBRARIES Boost::headers)
 endif()
 find_package(OpenSSL REQUIRED)
+find_package(Iconv REQUIRED)
+set(_saved_build_testing ${BUILD_TESTING})
+set(BUILD_TESTING OFF)
 add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/certify)
+set(BUILD_TESTING ${_saved_build_testing})
+unset(_saved_build_testing)
 
 # base
 set(BASE_DIR ${SRC_DIR}/base)
@@ -45,7 +50,7 @@ add_library(adf_protocol STATIC
     ${ADF_DIR}/byte_buffer.cpp
 )
 target_include_directories(adf_protocol PRIVATE ${SRC_DIR} ${ADF_DIR})
-target_link_libraries(adf_protocol PRIVATE base)
+target_link_libraries(adf_protocol PRIVATE base Iconv::Iconv)
 
 set(PERSON_DIR ${SRC_DIR}/person)
 add_library(person STATIC
