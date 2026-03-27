@@ -1,7 +1,6 @@
 #include "global/app_context.hpp"
 #include "global/game_launch.hpp"
 #include "httpreq/cgi_loader.hpp"
-#include "httpreq/http_request.hpp"
 #include "rebirth/rebirth_config.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -35,7 +34,7 @@ boost::asio::awaitable<void> run_mock_chain(AppContext& ctx) {
     auto& rebirth = ctx.rebirth_data_proxy;
     auto& fix_temper = ctx.fix_temper_data_proxy;
     auto& spirit_loader = ctx.spirit_books_conf_loader;
-    HttpRequest http_request{};
+    auto& http_request = ctx.http_request;
     CGILoader cgi_loader{"https://mock.local/cgi-bin/", http_request};
 
     manager.set_user_data(ctx.user_data);

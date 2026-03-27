@@ -3,18 +3,18 @@
 #include <utility>
 
 CGILoader::CGILoader(std::string cgi_root, HttpRequest& http_request)
-    : cgi2_(http_request, std::move(cgi_root)) {}
+    : http_request_(http_request), cgi_root_(std::move(cgi_root)) {}
 
 void CGILoader::set_cgi_root(std::string cgi_root) {
-    cgi2_.set_cgi_root(std::move(cgi_root));
+    cgi_root_ = std::move(cgi_root);
 }
 
 const std::string& CGILoader::cgi_root() const {
-    return cgi2_.cgi_root();
+    return cgi_root_;
 }
 
 void CGILoader::set_mock_handler(CGI2::mock_handler handler) {
-    cgi2_.set_mock_handler(std::move(handler));
+    CGI2::set_mock_handler(std::move(handler));
 }
 
 void CGILoader::set_on_complete(event_callback callback) {
@@ -59,23 +59,20 @@ boost::asio::awaitable<CGILoader::result> CGILoader::send_impl(
     const std::string& send_type,
     const std::map<std::string, std::string>& send_data
 ) {
-    struct LoadingGuard {
-        bool* flag = nullptr;
-        ~LoadingGuard() {
-            if (flag != nullptr) {
-                *flag = false;
-            }
+    struct PendingGuard {
+        bool& pending;
+        ~PendingGuard() {
+            pending = false;
         }
     };
 
-    if (is_loading_) {
-        co_return std::unexpected("CGILoader: a request is already in progress");
+    if (has_pending_event_) {
+        co_return std::unexpected("CGILoader: request ignored because previous xevent is pending");
     }
-
-    is_loading_ = true;
-    LoadingGuard guard{&is_loading_};
+    has_pending_event_ = true;
+    PendingGuard pending_guard{has_pending_event_};
     auto request_data = get_send_obj(send_data);
-    auto result = co_await cgi2_.call(path_or_url, request_data, true, false, false);
+    auto result = co_await CGI2::call(http_request_, cgi_root_, path_or_url, request_data, true, false, false);
 
     if (!result.has_value()) {
         CgiEvent event{};

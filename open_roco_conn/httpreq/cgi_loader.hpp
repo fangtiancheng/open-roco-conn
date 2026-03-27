@@ -51,8 +51,9 @@ private:
         const std::map<std::string, std::string>& send_data
     );
 
-    CGI2 cgi2_;
-    bool is_loading_ = false;
+    HttpRequest& http_request_;
+    std::string cgi_root_{};
+    bool has_pending_event_ = false;
     event_callback on_complete_{};
     event_callback on_error_{};
     std::map<std::string, std::string> default_send_obj_{};
