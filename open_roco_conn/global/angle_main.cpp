@@ -19,6 +19,8 @@
 
 using namespace std::chrono_literals;
 
+AngleMain::~AngleMain() = default;
+
 void AngleMain::set_on_initialize(hook callback) {
     on_initialize_ = std::move(callback);
 }
@@ -33,6 +35,14 @@ void AngleMain::set_on_network_closed(hook callback) {
 
 void AngleMain::set_on_refresh_html(hook callback) {
     on_refresh_html_ = std::move(callback);
+}
+
+void AngleMain::set_bootstrap_user_data(const UserData& data) {
+    user_data_ = data;
+}
+
+const UserData& AngleMain::user_data() const {
+    return user_data_;
 }
 
 void AngleMain::initialize() {

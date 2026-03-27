@@ -1,5 +1,5 @@
 #include "world/angle_world.hpp"
-#include "world/angle_sys_event.hpp"
+#include "event/angle_sys_event.hpp"
 
 void AngleWorld::initialize(EventDispatcher& dispatcher) {
     dispatcher_ = &dispatcher;

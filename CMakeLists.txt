@@ -133,6 +133,7 @@ set(WORLD_DIR ${SRC_DIR}/world)
 add_library(global STATIC
     ${GLOBAL_DIR}/angle_event_manager.cpp
     ${GLOBAL_DIR}/angle_main.cpp
+    ${GLOBAL_DIR}/game_launch.cpp
     ${GLOBAL_DIR}/global.cpp
     ${GLOBAL_DIR}/global_api.cpp
     ${GLOBAL_DIR}/global_manager.cpp
@@ -144,7 +145,7 @@ add_library(global STATIC
     ${WORLD_DIR}/aw_data_receiver.cpp
 )
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR})
-target_link_libraries(global PRIVATE base adf_protocol websocketpp Boost::headers)
+target_link_libraries(global PRIVATE base adf_protocol Boost::headers)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
@@ -175,5 +176,16 @@ add_executable(test
 )
 target_link_libraries(test PRIVATE
     Boost::headers Boost::url Boost::json OpenSSL::SSL
+)
+
+add_executable(app
+    ./open_roco_conn/app.cpp
+)
+target_include_directories(app PRIVATE ${SRC_DIR})
+target_link_libraries(app PRIVATE
+    global
+    event
+    websock
+    Boost::headers
 )
 

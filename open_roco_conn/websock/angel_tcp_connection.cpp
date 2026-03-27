@@ -15,7 +15,6 @@ AngelTcpConnection::AngelTcpConnection(const uint32_t id)
     name_ += std::to_string(g_constructor_counter);
     in_byte_buff.allocate(0);
     set_policy_port(Define::POLICYPORT);
-    connect(std::string(HOST), PORT);
 }
 
 uint32_t AngelTcpConnection::get_id() const {

@@ -1,6 +1,8 @@
 #pragma once
 #include "base/rf_base.hpp"
 #include "angle_event_manager.hpp"
+#include "global/user_data.hpp"
+#include "world/angle_world.hpp"
 #include "web_socket_client.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/executor_work_guard.hpp>
@@ -11,12 +13,11 @@
 #include <optional>
 #include <thread>
 
-class AngleWorld;
-
 class AngleMain: public RFBase {
 public:
     const std::string_view get_param1() override { return "2eed9bO4G9B7K1RA/KD/KcW"; }
     const std::string_view get_param2() override { return "AngleMain"; }
+    ~AngleMain() override;
 
     using hook = std::function<void()>;
 
@@ -24,6 +25,8 @@ public:
     void set_on_logined(hook callback);
     void set_on_network_closed(hook callback);
     void set_on_refresh_html(hook callback);
+    void set_bootstrap_user_data(const UserData& data);
+    const UserData& user_data() const;
 
     void initialize();
     void on_logined();
@@ -56,6 +59,7 @@ private:
     hook on_logined_;
     hook on_network_closed_;
     hook on_refresh_html_;
+    UserData user_data_{};
     std::unique_ptr<AngleWorld> world_{};
     AngleEventManager angle_event_manager_{};
     WebSocketClient web_socket_client_{};
