@@ -23,6 +23,7 @@ unset(_saved_build_testing)
 set(BASE_DIR ${SRC_DIR}/base)
 add_library(base STATIC
     ${BASE_DIR}/constants.hpp
+    ${BASE_DIR}/app_const_def.hpp
     ${BASE_DIR}/define.cpp
     ${BASE_DIR}/rf_base.cpp
     ${BASE_DIR}/property_des.cpp
@@ -126,8 +127,9 @@ add_library(login STATIC
 target_include_directories(login PRIVATE ${SRC_DIR} ${LOGIN_DIR})
 target_link_libraries(login PRIVATE base adf_protocol person)
 
-#global
+# global
 set(GLOBAL_DIR ${SRC_DIR}/global)
+set(WORLD_DIR ${SRC_DIR}/world)
 add_library(global STATIC
     ${GLOBAL_DIR}/angle_event_manager.cpp
     ${GLOBAL_DIR}/angle_main.cpp
@@ -137,8 +139,11 @@ add_library(global STATIC
     ${GLOBAL_DIR}/global_timer.cpp
     ${GLOBAL_DIR}/user_data.cpp
     ${GLOBAL_DIR}/web_socket_client.cpp
+    ${WORLD_DIR}/angle_world.cpp
+    ${WORLD_DIR}/abstract_data_receiver.cpp
+    ${WORLD_DIR}/aw_data_receiver.cpp
 )
-target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
+target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR})
 target_link_libraries(global PRIVATE base adf_protocol websocketpp Boost::headers)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
@@ -171,3 +176,4 @@ add_executable(test
 target_link_libraries(test PRIVATE
     Boost::headers Boost::url Boost::json OpenSSL::SSL
 )
+

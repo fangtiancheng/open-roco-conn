@@ -1,9 +1,10 @@
+#pragma once
 #include "base/rf_base.hpp"
-#include <string>
-#include <functional>
-#include <vector>
 #include <cstdint>
+#include <functional>
 #include <map>
+#include <string>
+#include <vector>
 
 struct CallbackInfo;
 

@@ -1,13 +1,17 @@
 #pragma once
 #include "base/rf_base.hpp"
+#include "angle_event_manager.hpp"
 #include "web_socket_client.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/io_context.hpp>
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <thread>
+
+class AngleWorld;
 
 class AngleMain: public RFBase {
 public:
@@ -30,6 +34,17 @@ public:
     bool is_initialized() const;
     void finalize();
 
+    // Headless API surface:
+    // available in connector mode.
+    EventDispatcher& get_g_event_api();
+    WebSocketClient& get_net_sys_api();
+    AngleWorld& get_world_api() const;
+    // unavailable in connector mode (render/UI dependent).
+    [[noreturn]] void get_ui_sys_api() const;
+    [[noreturn]] void get_res_sys_api() const;
+    [[noreturn]] void get_media_sys_api() const;
+    [[noreturn]] void get_external_api() const;
+
 private:
     boost::asio::awaitable<void> async_bootstrap();
     boost::asio::awaitable<void> recv_loop();
@@ -41,6 +56,8 @@ private:
     hook on_logined_;
     hook on_network_closed_;
     hook on_refresh_html_;
+    std::unique_ptr<AngleWorld> world_{};
+    AngleEventManager angle_event_manager_{};
     WebSocketClient web_socket_client_{};
     boost::asio::io_context io_context_{};
     std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_{};
