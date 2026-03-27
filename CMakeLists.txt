@@ -130,12 +130,15 @@ target_link_libraries(login PRIVATE base adf_protocol person)
 # global
 set(GLOBAL_DIR ${SRC_DIR}/global)
 set(WORLD_DIR ${SRC_DIR}/world)
+set(REBIRTH_DIR ${SRC_DIR}/rebirth)
 add_library(global STATIC
     ${GLOBAL_DIR}/angle_event_manager.cpp
     ${GLOBAL_DIR}/angle_main.cpp
+    ${GLOBAL_DIR}/game_app.cpp
     ${GLOBAL_DIR}/game_launch.cpp
     ${GLOBAL_DIR}/global.cpp
     ${GLOBAL_DIR}/global_api.cpp
+    ${GLOBAL_DIR}/global_game_info.cpp
     ${GLOBAL_DIR}/global_manager.cpp
     ${GLOBAL_DIR}/global_timer.cpp
     ${GLOBAL_DIR}/user_data.cpp
@@ -143,12 +146,19 @@ add_library(global STATIC
     ${WORLD_DIR}/angle_world.cpp
     ${WORLD_DIR}/abstract_data_receiver.cpp
     ${WORLD_DIR}/aw_data_receiver.cpp
+    ${REBIRTH_DIR}/fix_temper_data_proxy.cpp
+    ${REBIRTH_DIR}/rebirth_data_proxy.cpp
 )
-target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR})
-target_link_libraries(global PRIVATE base adf_protocol Boost::headers)
+target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR} ${REBIRTH_DIR})
+target_link_libraries(global PRIVATE base adf_protocol Boost::headers spirit_book httpreq)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
+    ${HTTPREQ_DIR}/cgi2.cpp
+    ${HTTPREQ_DIR}/cgi2.hpp
+    ${HTTPREQ_DIR}/cgi_event.hpp
+    ${HTTPREQ_DIR}/cgi_loader.cpp
+    ${HTTPREQ_DIR}/cgi_loader.hpp
     ${HTTPREQ_DIR}/http_request.cpp
     ${HTTPREQ_DIR}/angel_url_loader.cpp
     ${HTTPREQ_DIR}/url_loader.cpp
@@ -185,6 +195,7 @@ target_include_directories(app PRIVATE ${SRC_DIR})
 target_link_libraries(app PRIVATE
     global
     event
+    httpreq
     websock
     Boost::headers
 )

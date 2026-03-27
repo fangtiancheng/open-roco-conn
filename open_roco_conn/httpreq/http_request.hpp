@@ -4,7 +4,6 @@
 #include <map>
 #include <expected>
 
-#define BOOST_ASIO_HAS_CO_AWAIT
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl.hpp>

@@ -1,7 +1,9 @@
 #pragma once
 #include "base/rf_base.hpp"
-#include "global_manager.hpp"
+#include "global_game_info.hpp"
 #include "global/user_data.hpp"
+#include <boost/asio/awaitable.hpp>
+#include <expected>
 #include <map>
 #include <string>
 #include <string_view>
@@ -11,22 +13,21 @@ public:
     const std::string_view get_param1() override { return "e00b29D8BFLK2IBmVgiHDc1"; }
     const std::string_view get_param2() override { return "GameLaunch"; }
 
-    static GameLaunch& instance();
+    using result = std::expected<void, std::string>;
+    using user_data_result = std::expected<UserData, std::string>;
+    using global_game_info_result = std::expected<GlobalGameInfo, std::string>;
+    using uin_result = std::expected<uint32_t, std::string>;
 
-    void launch();
-    void launch(const std::map<std::string, std::string>& cookie_map);
-    void notify_config_done();
-    void notify_game_res_pkg_done();
-    bool is_launched() const;
-    bool is_ready() const;
-    int parse_uin(const std::string& raw_uin) const;
-    UserData parse_user_data(const std::map<std::string, std::string>& cookie_map) const;
-    const UserData& user_data() const;
-    GlobalManager& global_manager();
-    const GlobalManager& global_manager() const;
+    boost::asio::awaitable<result> on_load(
+        const std::map<std::string, std::string>& cookie_map,
+        UserData& user_data,
+        GlobalGameInfo& global_game_info
+    );
 
-private:
-    bool launched_ = false;
-    UserData user_data_{};
-    GlobalManager global_manager_{};
+    result launch(const std::map<std::string, std::string>& cookie_map,
+                  UserData& user_data,
+                  GlobalGameInfo& global_game_info);
+    uin_result parse_uin(const std::string& raw_uin) const;
+    user_data_result parse_user_data(const std::map<std::string, std::string>& cookie_map) const;
+    global_game_info_result parse_global_game_info(const std::map<std::string, std::string>& cookie_map) const;
 };

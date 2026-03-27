@@ -17,7 +17,6 @@ public:
     void set_session_key(const std::string& key) ;
     static constexpr std::array<std::string_view, 3> white_array = {"WAXSJJVAB", "BWVLJAJVZ", "BLAJWJWFB"};
     uint32_t uin = 0;
-    bool is_login_in = false;
     std::string skey = "A338BCF057FBA7F3B7515605C03D928E";
     std::string pskey = "CEC82B4C0F90A0FDE409B97BD99A7ADA";
     int rec_server_idx = 1;

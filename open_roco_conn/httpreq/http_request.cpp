@@ -238,3 +238,30 @@ void HttpRequest::delete_cache(const std::string &url) {
     cache_i.erase(url);
     cache_c.erase(url);
 }
+
+template boost::asio::awaitable<HttpRequest::Result<HttpRequest::txt>>
+HttpRequest::send_request<HttpRequest::txt>(
+    const std::string& endpoint,
+    const std::map<std::string, std::string>& params,
+    bool post_or_get,
+    bool enable_timeout,
+    int64_t timeout
+);
+
+template boost::asio::awaitable<HttpRequest::Result<HttpRequest::arraybuffer>>
+HttpRequest::send_request<HttpRequest::arraybuffer>(
+    const std::string& endpoint,
+    const std::map<std::string, std::string>& params,
+    bool post_or_get,
+    bool enable_timeout,
+    int64_t timeout
+);
+
+template boost::asio::awaitable<HttpRequest::Result<HttpRequest::json>>
+HttpRequest::send_request<HttpRequest::json>(
+    const std::string& endpoint,
+    const std::map<std::string, std::string>& params,
+    bool post_or_get,
+    bool enable_timeout,
+    int64_t timeout
+);

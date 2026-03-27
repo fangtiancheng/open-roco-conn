@@ -3,7 +3,6 @@
 #include "adf_protocol/adf_cmds_type.hpp"
 #include "base/define.hpp"
 #include "global_api.hpp"
-#include "global_manager.hpp"
 #include "websock/angel_tcp_connection.hpp"
 #include "world/angle_world.hpp"
 #include <boost/asio/co_spawn.hpp>
@@ -62,9 +61,6 @@ void AngleMain::initialize() {
         io_context_.run();
     });
     boost::asio::co_spawn(io_context_, async_bootstrap(), boost::asio::detached);
-    GlobalManager::set_login_success_hook([this]() {
-        on_logined();
-    });
 
     if (on_initialize_) {
         on_initialize_();
@@ -157,7 +153,6 @@ void AngleMain::finalize() {
         world_->finalize();
         world_.reset();
     }
-    GlobalManager::set_login_success_hook({});
 
     initialized_ = false;
     is_render_ = true;
@@ -203,7 +198,7 @@ boost::asio::awaitable<void> AngleMain::recv_loop() {
 
         const uint32_t cmd_type = adf.head.cmd_id;
         if (cmd_type == ADFCmdsType::T_LoginRoom) {
-            GlobalManager::login_success_logic();
+            on_logined();
         }
         if (world_) {
             world_->data_receiver().receive(cmd_type);

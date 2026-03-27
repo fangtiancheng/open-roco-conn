@@ -1,9 +1,12 @@
 #pragma once
 #include "angle_main.hpp"
 #include "base/rf_base.hpp"
+#include "global/global_game_info.hpp"
 #include "global/user_data.hpp"
 #include <functional>
 #include <memory>
+
+class ReBirthDataProxy;
 
 class GlobalManager: public RFBase {
 public:
@@ -24,11 +27,12 @@ public:
     AngleMain* angle_main() const;
     void set_user_data(const UserData& data);
     const UserData& user_data() const;
+    void set_global_game_info(GlobalGameInfo* info);
+    GlobalGameInfo* global_game_info() const;
+    void set_rebirth_data_proxy(ReBirthDataProxy* proxy);
+    ReBirthDataProxy* rebirth_data_proxy() const;
     void set_mock_mode(bool value);
     bool mock_mode() const;
-
-    static void set_login_success_hook(hook callback);
-    static void login_success_logic();
 
 private:
     void check_res_done();
@@ -39,6 +43,8 @@ private:
     hook on_after_loader_;
     hook on_all_res_done_;
     bool mock_mode_ = false;
+    GlobalGameInfo* global_game_info_ = nullptr;
+    ReBirthDataProxy* rebirth_data_proxy_ = nullptr;
     UserData user_data_{};
     std::unique_ptr<AngleMain> angle_main_{};
 };

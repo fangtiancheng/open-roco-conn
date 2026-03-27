@@ -1,0 +1,18 @@
+#pragma once
+#include "game_app.hpp"
+#include "global_game_info.hpp"
+#include "global_manager.hpp"
+#include "rebirth/fix_temper_data_proxy.hpp"
+#include "rebirth/rebirth_data_proxy.hpp"
+#include "spirit_book/spirit_books_conf_loader.hpp"
+#include "user_data.hpp"
+
+struct AppContext {
+    UserData user_data{};
+    GlobalGameInfo global_game_info{};
+    GlobalManager global_manager{};
+    ReBirthDataProxy rebirth_data_proxy{};
+    FixTemperDataProxy fix_temper_data_proxy{};
+    SpiritBooksConfLoader spirit_books_conf_loader{};
+    GameApp game_app{};
+};

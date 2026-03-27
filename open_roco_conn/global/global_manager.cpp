@@ -1,10 +1,7 @@
 #include "global_manager.hpp"
 #include "angle_main.hpp"
+#include "rebirth/rebirth_data_proxy.hpp"
 #include <utility>
-
-namespace {
-GlobalManager::hook g_login_success_hook;
-}
 
 GlobalManager::~GlobalManager() = default;
 
@@ -58,22 +55,28 @@ const UserData& GlobalManager::user_data() const {
     return user_data_;
 }
 
+void GlobalManager::set_global_game_info(GlobalGameInfo* info) {
+    global_game_info_ = info;
+}
+
+GlobalGameInfo* GlobalManager::global_game_info() const {
+    return global_game_info_;
+}
+
+void GlobalManager::set_rebirth_data_proxy(ReBirthDataProxy* proxy) {
+    rebirth_data_proxy_ = proxy;
+}
+
+ReBirthDataProxy* GlobalManager::rebirth_data_proxy() const {
+    return rebirth_data_proxy_;
+}
+
 void GlobalManager::set_mock_mode(const bool value) {
     mock_mode_ = value;
 }
 
 bool GlobalManager::mock_mode() const {
     return mock_mode_;
-}
-
-void GlobalManager::set_login_success_hook(hook callback) {
-    g_login_success_hook = std::move(callback);
-}
-
-void GlobalManager::login_success_logic() {
-    if (g_login_success_hook) {
-        g_login_success_hook();
-    }
 }
 
 void GlobalManager::check_res_done() {
@@ -84,6 +87,14 @@ void GlobalManager::check_res_done() {
     if (!angle_main_) {
         angle_main_ = std::make_unique<AngleMain>();
         angle_main_->set_bootstrap_user_data(user_data_);
+        angle_main_->set_on_logined([this]() {
+            if (global_game_info_ != nullptr) {
+                global_game_info_->is_login_in = true;
+            }
+            if (rebirth_data_proxy_ != nullptr) {
+                (void) rebirth_data_proxy_->query();
+            }
+        });
         if (!mock_mode_) {
             angle_main_->initialize();
         }
