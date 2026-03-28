@@ -74,16 +74,7 @@ void EventDispatcher::begin_timer() {
     auto now = std::chrono::system_clock::now();
     res_begin_timer = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     if(Define::IS_DEBUG){
-        std::cout << "EventDispatcher==beginTimer==>EventDispatcher===>"
-                  << res_begin_timer << "ms" << std::endl;
-    }
-}
-
-void EventDispatcher::end_timer() {
-    auto now = std::chrono::system_clock::now();
-    res_end_timer = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    if(Define::IS_DEBUG){
-        std::cout << "EventDispatcher==endTimer==>" << res_begin_timer
+        debug_stream() << "EventDispatcher==endTimer==>" << res_begin_timer
                   << "==" << res_end_timer << "=="
                   << (res_end_timer - res_begin_timer) << "ms" << std::endl;
     }

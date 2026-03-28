@@ -49,19 +49,19 @@ bool AngelTcpConnection::is_connected() const {
 void AngelTcpConnection::on_open() {
     state_ = connection_state::open;
     if (Define::IS_DEBUG) {
-        std::cout << "[AngelTcpConnection] on_open name=" << name_ << " id=" << id_ << std::endl;
+        debug_stream() << "on_open name=" << name_ << " id=" << id_ << std::endl;
     }
 }
 
 void AngelTcpConnection::on_error() {
     state_ = connection_state::error;
-    std::cerr << "[AngelTcpConnection] on_error id=" << id_ << std::endl;
+    debug_stream() << "on_error id=" << id_ << std::endl;
 }
 
 void AngelTcpConnection::on_close() {
     state_ = connection_state::closed;
     if (Define::IS_DEBUG) {
-        std::cout << "[AngelTcpConnection] on_close id=" << id_ << std::endl;
+        debug_stream() << "on_close id=" << id_ << std::endl;
     }
 }
 
@@ -72,7 +72,7 @@ void AngelTcpConnection::set_mock_response_provider(mock_response_provider provi
 std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     if (!is_connected()) {
         if (Define::IS_DEBUG) {
-            std::cout << "[AngelTcpConnection] error: send on non-open socket, state="
+            debug_stream() << "error: send on non-open socket, state="
                       << static_cast<int>(state_) << " name=" << name_ << std::endl;
         }
         return {};
@@ -95,15 +95,13 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
         for (const uint8_t b : bytes) {
             hex_stream << std::format("{:02x} ", b);
         }
-        std::cout << "[AngelTcpConnection] name=" << name_ << std::endl;
-        std::cout << "[AngelTcpConnection] send cmd=0x"
-                  << std::hex << adf.head.cmd_id << std::dec
-                  << " len=" << bytes.size() << std::endl;
-        std::cout << "sendArrayBuffer : " << hex_stream.str() << std::endl;
+        debug_line(std::format("name={}", name_));
+        debug_line(std::format("send cmd=0x{:#x} len={}", adf.head.cmd_id, bytes.size()));
+        debug_line("sendArrayBuffer : "+hex_stream.str());
     }
 
     if (adf.head.cmd_id == ADFCmdsType::T_LoginRoom && Define::IS_DEBUG) {
-        std::cout << "[AngelTcpConnection] login room packet sent, id=" << id_ << std::endl;
+        debug_stream() << "login room packet sent, id=" << id_ << std::endl;
     }
 
     sent_bytes_queue_.push_back(bytes);
@@ -113,7 +111,7 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
         if (maybe_mock.has_value()) {
             auto ret = on_message(*maybe_mock, true);
             if (!ret.has_value() && Define::IS_DEBUG) {
-                std::cerr << "[AngelTcpConnection] local mock on_message failed: "
+                debug_stream() << "local mock on_message failed: "
                           << ret.error() << std::endl;
             }
         }
@@ -132,15 +130,15 @@ AngelTcpConnection::op_result AngelTcpConnection::on_message(ByteArray packet, c
         std::ostringstream hex_stream;
         ByteArray debug_copy = packet;
         while (debug_copy.bytes_available() > 0) {
-            hex_stream << "0x" << std::format("{:02x}", debug_copy.read_unsigned_byte());
+            hex_stream << std::format("0x{:02x}", debug_copy.read_unsigned_byte());
             if (debug_copy.bytes_available() > 0) {
                 hex_stream << ", ";
             }
         }
-        std::cout << (is_local_reply ? "这是一个本地回包" : "")
+        debug_stream() << (is_local_reply ? "这是一个本地回包" : "")
                   << "[AngelTcpConnection] TCP[" << id_ << "]收到服务端数据:"
                   << packet.length() << std::endl;
-        std::cout << "收到服务端数据:== [" << hex_stream.str() << "]" << std::endl;
+        debug_stream() << "收到服务端数据:== [" << hex_stream.str() << "]" << std::endl;
     }
 
     // JS logic expects one ADF per ws message; keep the same strict behavior.
@@ -185,7 +183,7 @@ AngelTcpConnection::op_result AngelTcpConnection::execute_combat() {
                 hex_stream << ", ";
             }
         }
-        std::cout << "收到服务端数据:==[" << hex_stream.str() << "]" << std::endl;
+        debug_stream() << "收到服务端数据:==[" << hex_stream.str() << "]" << std::endl;
     }
 
     if (!empty_adf_.has_value()) {
@@ -255,7 +253,7 @@ bool AngelTcpConnection::try_read_adf_body(ByteArray& n) {
     if (Define::IS_DEBUG) {
         const auto cmd_id = empty_adf_->head.cmd_id;
         if (cmd_id == ADFCmdsType::T_LoginRoom) {
-            std::cout << "[AngelTcpConnection] receive login room response" << std::endl;
+            debug_line("receive login room response");
         }
     }
 

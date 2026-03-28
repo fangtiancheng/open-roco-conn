@@ -3,10 +3,10 @@ project(open_roco_conn)
 set(CMAKE_CXX_STANDARD 23)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/open_roco_conn)
 if(MSVC)
-    add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0601)
+    add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0602)
 endif()
 
-find_package(Boost CONFIG REQUIRED COMPONENTS headers url json)
+find_package(Boost CONFIG REQUIRED COMPONENTS headers url json log log_setup)
 if(NOT TARGET Boost::system)
     add_library(Boost::system INTERFACE IMPORTED)
     set_property(TARGET Boost::system PROPERTY INTERFACE_LINK_LIBRARIES Boost::headers)
@@ -30,6 +30,7 @@ add_library(base STATIC
     ${BASE_DIR}/unicode_translator.hpp
 )
 target_include_directories(base PRIVATE ${SRC_DIR} ${BASE_DIR})
+target_link_libraries(base PRIVATE Boost::log Boost::log_setup)
 
 # adf
 set(ADF_DIR ${SRC_DIR}/adf_protocol)
@@ -140,6 +141,7 @@ add_library(global STATIC
     ${GLOBAL_DIR}/global_api.cpp
     ${GLOBAL_DIR}/global_game_info.cpp
     ${GLOBAL_DIR}/global_manager.cpp
+    ${GLOBAL_DIR}/server_list_ui.cpp
     ${GLOBAL_DIR}/global_timer.cpp
     ${GLOBAL_DIR}/user_data.cpp
     ${GLOBAL_DIR}/web_socket_client.cpp
@@ -150,7 +152,7 @@ add_library(global STATIC
     ${REBIRTH_DIR}/rebirth_data_proxy.cpp
 )
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR} ${REBIRTH_DIR})
-target_link_libraries(global PRIVATE base adf_protocol Boost::headers spirit_book httpreq)
+target_link_libraries(global PRIVATE base adf_protocol Boost::headers spirit_book httpreq login)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC

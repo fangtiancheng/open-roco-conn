@@ -16,6 +16,8 @@ class HttpRequest: public RFBase {
     boost::asio::ssl::context ssl_ctx{boost::asio::ssl::context::tlsv12_client};
 public:
     HttpRequest() {
+        boost::system::error_code ec;
+        ssl_ctx.set_default_verify_paths(ec);
         ssl_ctx.set_verify_mode(boost::asio::ssl::verify_peer);
     }
     enum ResponseType{
@@ -60,6 +62,14 @@ public:
     static constexpr std::string_view TIMEOUT = "http_request_timout";
     std::string server = "127.0.0.1";
     int64_t timeout = 2e3;
+
+    void set_insecure_skip_tls_verify(const bool enable) {
+        if (enable) {
+            ssl_ctx.set_verify_mode(boost::asio::ssl::verify_none);
+            return;
+        }
+        ssl_ctx.set_verify_mode(boost::asio::ssl::verify_peer);
+    }
 
     struct HttpError {
         int code;

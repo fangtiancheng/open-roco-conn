@@ -10,7 +10,7 @@
 
 class GameLaunch: public RFBase {
 public:
-    const std::string_view get_param1() override { return "e00b29D8BFLK2IBmVgiHDc1"; }
+    const std::string_view get_param1() override { return "e00b29D/8BFLK2IBmVgiHDc"; }
     const std::string_view get_param2() override { return "GameLaunch"; }
 
     using result = std::expected<void, std::string>;

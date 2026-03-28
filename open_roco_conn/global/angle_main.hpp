@@ -2,6 +2,7 @@
 #include "base/rf_base.hpp"
 #include "angle_event_manager.hpp"
 #include "global/user_data.hpp"
+#include "login/server_info.hpp"
 #include "world/angle_world.hpp"
 #include "web_socket_client.hpp"
 #include <boost/asio/awaitable.hpp>
@@ -26,6 +27,7 @@ public:
     void set_on_network_closed(hook callback);
     void set_on_refresh_html(hook callback);
     void set_bootstrap_user_data(const UserData& data);
+    void set_bootstrap_room_id(uint16_t room_id);
     const UserData& user_data() const;
 
     void initialize();
@@ -60,6 +62,7 @@ private:
     hook on_network_closed_;
     hook on_refresh_html_;
     UserData user_data_{};
+    uint16_t bootstrap_room_id_ = 0;
     std::unique_ptr<AngleWorld> world_{};
     AngleEventManager angle_event_manager_{};
     WebSocketClient web_socket_client_{};

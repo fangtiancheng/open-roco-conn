@@ -87,6 +87,29 @@ boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> pa
     co_return;
 }
 
+boost::asio::awaitable<void> WebSocketClient::send_adf_async(const ADF& adf) {
+    auto executor = co_await boost::asio::this_coro::executor;
+    boost::asio::steady_timer timer(executor);
+    state current_state;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        current_state = state_;
+    }
+
+    if (current_state != state::connected) {
+        co_return;
+    }
+
+    timer.expires_after(1ms);
+    co_await timer.async_wait(boost::asio::use_awaitable);
+
+    ADF copy = adf;
+    auto sent = tcp_connection_.send_data(copy);
+    std::cout << "cmd=0x" << std::hex << adf.head.cmd_id << std::dec
+              << " send bytes: " << sent.size() << std::endl;
+    co_return;
+}
+
 boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {
     auto executor = co_await boost::asio::this_coro::executor;
     boost::asio::steady_timer timer(executor);

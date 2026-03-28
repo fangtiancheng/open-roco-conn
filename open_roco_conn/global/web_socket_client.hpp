@@ -31,6 +31,7 @@ public:
     boost::asio::awaitable<bool> connect_async(std::string url);
     void disconnect();
     boost::asio::awaitable<void> send_async(std::vector<uint8_t> payload, uint32_t cmd_id = 0);
+    boost::asio::awaitable<void> send_adf_async(const ADF& adf);
     boost::asio::awaitable<std::vector<uint8_t>> recv_async();
     boost::asio::awaitable<void> heartbeat_loop();
     void push_incoming(std::vector<uint8_t> payload);

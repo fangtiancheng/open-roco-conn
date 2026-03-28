@@ -3,6 +3,7 @@
 #include "adf_protocol/adf_cmds_type.hpp"
 #include "base/define.hpp"
 #include "global_api.hpp"
+#include "global/server_list_ui.hpp"
 #include "websock/angel_tcp_connection.hpp"
 #include "world/angle_world.hpp"
 #include <boost/asio/co_spawn.hpp>
@@ -38,6 +39,10 @@ void AngleMain::set_on_refresh_html(hook callback) {
 
 void AngleMain::set_bootstrap_user_data(const UserData& data) {
     user_data_ = data;
+}
+
+void AngleMain::set_bootstrap_room_id(const uint16_t room_id) {
+    bootstrap_room_id_ = room_id;
 }
 
 const UserData& AngleMain::user_data() const {
@@ -166,6 +171,11 @@ boost::asio::awaitable<void> AngleMain::async_bootstrap() {
         co_return;
     }
 
+    auto login_result = co_await ServerListUI::login_logic(web_socket_client_, user_data_, bootstrap_room_id_, 1);
+    if (!login_result.has_value() && Define::IS_DEBUG) {
+        debug_line("login room send skipped: " + login_result.error());
+    }
+
     boost::asio::co_spawn(io_context_, web_socket_client_.heartbeat_loop(), boost::asio::detached);
     boost::asio::co_spawn(io_context_, recv_loop(), boost::asio::detached);
     co_return;
@@ -191,7 +201,7 @@ boost::asio::awaitable<void> AngleMain::recv_loop() {
             adf.read_external(packet);
         } catch (const std::exception& ex) {
             if (Define::IS_DEBUG) {
-                std::cerr << "[AngleMain] parse adf failed: " << ex.what() << std::endl;
+                debug_line(std::string("parse adf failed: ") + ex.what());
             }
             continue;
         }
@@ -205,7 +215,7 @@ boost::asio::awaitable<void> AngleMain::recv_loop() {
         }
 
         if (Define::IS_DEBUG) {
-            std::cout << "[AngleMain] recv packet cmd=0x" << std::hex << cmd_type
+            debug_stream() << "recv packet cmd=0x" << std::hex << cmd_type
                       << std::dec << " bytes=" << bytes.size() << std::endl;
         }
     }

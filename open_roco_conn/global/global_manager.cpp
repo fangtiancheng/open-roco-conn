@@ -87,6 +87,9 @@ void GlobalManager::check_res_done() {
     if (!angle_main_) {
         angle_main_ = std::make_unique<AngleMain>();
         angle_main_->set_bootstrap_user_data(user_data_);
+        if (global_game_info_ != nullptr) {
+            angle_main_->set_bootstrap_room_id(global_game_info_->room_id);
+        }
         angle_main_->set_on_logined([this]() {
             if (global_game_info_ != nullptr) {
                 global_game_info_->is_login_in = true;
