@@ -19,7 +19,7 @@ void LoginReceiver::send_data(const uint32_t tcp_id, const uint32_t cmd_type) {
     if (loading_callback_) {
         loading_callback_(true);
     }
-    receive(cmd_type);
+    send_data_to_server(cmd_type);
 }
 
 void LoginReceiver::on_send_error(const uint32_t cmd_type,
@@ -56,13 +56,13 @@ std::vector<uint32_t> LoginReceiver::get_accept_types() const {
     };
 }
 
-bool LoginReceiver::on_data_receive(const uint32_t cmd_type) {
+bool LoginReceiver::on_data_receive(const uint32_t cmd_type, const ADF* adf) {
     (void) current_tcp_id_;
     if (loading_callback_) {
         loading_callback_(false);
     }
-    if (receive_handler_) {
-        receive_handler_(cmd_type);
+    if (receive_handler_ && adf != nullptr) {
+        receive_handler_(cmd_type, *adf);
     }
     return true;
 }

@@ -2,31 +2,28 @@
 
 #include "adf_protocol/adf_cmds_type.hpp"
 #include "base/define.hpp"
-#include "event/timer_event.hpp"
-#include "global/global_api.hpp"
+#include "event/event_key.hpp"
 #include <chrono>
 #include <format>
+#include <utility>
 
 LingerTcpConnection::LingerTcpConnection(const uint32_t id)
     : AngelTcpConnection(id) {
     hello_timer_ = std::make_unique<Timer>(std::chrono::milliseconds(12000));
-    hello_timer_listener_id_ = hello_timer_->add_event_listener(
-        std::string(TimerEvent::TIMER),
-        [this](const BaseEvent&) { on_hello_time(); }
-    );
+    hello_timer_listener_id_ = hello_timer_->add_event_listener(EventKey::timer, [this]() { on_hello_time(); });
 }
 
 LingerTcpConnection::~LingerTcpConnection() {
     if (hello_timer_) {
         hello_timer_->stop();
         if (hello_timer_listener_id_ != 0) {
-            hello_timer_->remove_event_listener(std::string(TimerEvent::TIMER), hello_timer_listener_id_);
+            hello_timer_->remove_event_listener(EventKey::timer, hello_timer_listener_id_);
         }
     }
 }
 
 void LingerTcpConnection::on_hello_time() {
-    if (!GlobalAPI::is_login()) {
+    if (is_login_provider_ && !is_login_provider_()) {
         return;
     }
 
@@ -76,6 +73,6 @@ std::vector<uint8_t> LingerTcpConnection::send_data(const ADF& adf) {
     return AngelTcpConnection::send_data(adf);
 }
 
-bool LingerTcpConnection::recv_once() {
-    return AngelTcpConnection::recv_once();
+void LingerTcpConnection::set_is_login_provider(std::function<bool()> provider) {
+    is_login_provider_ = std::move(provider);
 }

@@ -15,15 +15,6 @@ GlobalTimer::~GlobalTimer() {
     }
 }
 
-GlobalTimer& GlobalTimer::instance() {
-    static GlobalTimer timer;
-    return timer;
-}
-
-void GlobalTimer::init() {
-    (void)instance();
-}
-
 bool GlobalTimer::register_timer(
     const std::string& name,
     std::chrono::milliseconds interval,

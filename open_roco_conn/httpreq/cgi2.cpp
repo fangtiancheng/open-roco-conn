@@ -2,8 +2,6 @@
 
 #include <utility>
 
-CGI2::mock_handler CGI2::mock_handler_{};
-
 void CGI2::set_mock_handler(mock_handler handler) {
     mock_handler_ = std::move(handler);
 }

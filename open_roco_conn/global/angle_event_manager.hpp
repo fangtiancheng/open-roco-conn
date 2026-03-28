@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+class GlobalTimer;
+
 class AngleEventManager: public RFBase {
 public:
     const std::string_view get_param1() const override { return "bc3572iYeZKa6Z2idrF6ieF"; }
@@ -40,6 +42,7 @@ public:
     EventDispatcher& angel_event_dispatcher();
     void set_callback_center(CallbackCenter* callback_center);
     CallbackCenter& callback_center();
+    void set_timer(GlobalTimer* timer);
 
 private:
     void on_enter_frame();
@@ -47,6 +50,7 @@ private:
     void on_render();
 
     EventDispatcher global_dispatcher_;
+    GlobalTimer* timer_ = nullptr;
     CallbackCenter* callback_center_ = nullptr;
     std::unordered_map<int32_t, cmd_listener> cmd_listeners_;
     std::unordered_map<std::size_t, frame_listener> tick_listeners_;

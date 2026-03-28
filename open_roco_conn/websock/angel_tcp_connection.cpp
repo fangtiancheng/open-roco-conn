@@ -9,31 +9,39 @@
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
 #include <format>
-#include <iostream>
 #include <openssl/err.h>
-#include <sstream>
 
 namespace net = boost::asio;
 namespace beast = boost::beast;
 namespace ssl = net::ssl;
 
 namespace {
-uint32_t g_constructor_counter = 0;
+std::string bytes_to_hex_string(const std::vector<uint8_t>& bytes, const bool prefix_0x, const char* separator) {
+    std::string hex;
+    hex.reserve(bytes.size() * (prefix_0x ? 5 : 3));
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        hex += prefix_0x ? std::format("0x{:02x}", bytes[i]) : std::format("{:02x}", bytes[i]);
+        if (i + 1 < bytes.size()) {
+            hex += separator;
+        }
+    }
+    return hex;
 }
-
-std::mutex AngelTcpConnection::protobuf_cmd_mutex_{};
-std::unordered_set<uint32_t> AngelTcpConnection::protobuf_cmd_ids_{};
+}
 
 AngelTcpConnection::AngelTcpConnection(const uint32_t id)
     : id_(id) {
-    ++g_constructor_counter;
-    name_ += std::to_string(g_constructor_counter);
+    name_ += std::to_string(id_);
     in_byte_buff.allocate(0);
     set_policy_port(Define::POLICYPORT);
 
     boost::system::error_code ec;
     ssl_ctx_.set_default_verify_paths(ec);
     ssl_ctx_.set_verify_mode(ssl::verify_none);
+}
+
+AngelTcpConnection::~AngelTcpConnection() {
+    close();
 }
 
 void AngelTcpConnection::set_executor(const net::any_io_executor& executor) {
@@ -61,7 +69,7 @@ void AngelTcpConnection::register_protobuf_cmd(const uint32_t cmd_id) {
     protobuf_cmd_ids_.insert(cmd_id);
 }
 
-bool AngelTcpConnection::is_protobuf_cmd(const uint32_t cmd_id) {
+bool AngelTcpConnection::is_protobuf_cmd(const uint32_t cmd_id) const {
     std::lock_guard<std::mutex> lock(protobuf_cmd_mutex_);
     return protobuf_cmd_ids_.contains(cmd_id);
 }
@@ -176,18 +184,20 @@ void AngelTcpConnection::reconnect() {
 }
 
 void AngelTcpConnection::close() {
-    std::lock_guard<std::mutex> ws_lock(ws_mutex_);
+    stop_read_loop_.store(true);
     beast::error_code ec;
-
-    if (tls_ws_) {
-        tls_ws_->close(beast::websocket::close_code::normal, ec);
-        tls_ws_.reset();
+    {
+        std::lock_guard<std::mutex> ws_lock(ws_mutex_);
+        // Keep stream objects alive to avoid races with in-flight recv/send.
+        // reconnect() will recreate/reset them under the same mutex.
+        if (tls_ws_) {
+            tls_ws_->close(beast::websocket::close_code::normal, ec);
+        }
+        if (plain_ws_) {
+            plain_ws_->close(beast::websocket::close_code::normal, ec);
+        }
     }
-    if (plain_ws_) {
-        plain_ws_->close(beast::websocket::close_code::normal, ec);
-        plain_ws_.reset();
-    }
-
+    stop_read_loop(true);
     on_close();
 }
 
@@ -204,7 +214,8 @@ void AngelTcpConnection::on_open() {
     if (Define::IS_DEBUG) {
         debug_line(std::format("on_open name={}, id={}", name_, id_));
     }
-    dispatch_tcp_event(TCPConnEvent::TCPCONN_CONNECTED);
+    start_read_loop();
+    dispatch_tcp_event(EventKey::tcp_conn_connected);
 }
 
 void AngelTcpConnection::on_error() {
@@ -212,18 +223,27 @@ void AngelTcpConnection::on_error() {
         std::lock_guard<std::mutex> lock(state_mutex_);
         state_ = connection_state::error;
     }
-    dispatch_tcp_event(TCPConnEvent::TCPCONN_ERROR, {}, "[AngelTcpConnection] [error]");
+    dispatch_tcp_event(EventKey::tcp_conn_error, {}, "[AngelTcpConnection] [error]");
 }
 
 void AngelTcpConnection::on_close() {
+    bool changed = false;
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
+        if (state_ != connection_state::closed) {
+            changed = true;
+        }
         state_ = connection_state::closed;
     }
+    if (!changed) {
+        return;
+    }
+    stop_read_loop_.store(true);
+    adf_cv_.notify_all();
     if (Define::IS_DEBUG) {
         debug_line(std::format("on_close name={}, id={}", name_, id_));
     }
-    dispatch_tcp_event(TCPConnEvent::TCPCONN_CLOSED);
+    dispatch_tcp_event(EventKey::tcp_conn_closed);
 }
 
 void AngelTcpConnection::set_mock_response_provider(mock_response_provider provider) {
@@ -267,11 +287,11 @@ std::optional<uint32_t> AngelTcpConnection::to_callback_event_id(const std::stri
     return std::nullopt;
 }
 
-void AngelTcpConnection::dispatch_tcp_event(std::string_view event_type,
+void AngelTcpConnection::dispatch_tcp_event(const EventKey event_key,
                                             std::shared_ptr<ADF> adf,
                                             std::string message,
                                             const uint32_t data_type) {
-    TCPConnEvent event(std::string(event_type), id_);
+    TCPConnEvent event(std::string(to_string(event_key)), id_);
     if (adf) {
         event.set_adf(std::move(adf));
     }
@@ -308,7 +328,7 @@ void AngelTcpConnection::dispatch_notify_event(std::string_view event_type,
 std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     if (!is_connected()) {
         if (Define::IS_DEBUG) {
-            debug_stream() << "error: send on non-open socket, name=" << name_ << std::endl;
+            debug_line(std::format("error: send on non-open socket, name={}", name_));
         }
         return {};
     }
@@ -326,13 +346,9 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     }
 
     if (Define::IS_DEBUG) {
-        std::ostringstream hex_stream;
-        for (const uint8_t b : bytes) {
-            hex_stream << std::format("{:02x} ", b);
-        }
         debug_line(std::format("name={}", name_));
         debug_line(std::format("send cmd={:#x} len={}", adf.head.cmd_id, bytes.size()));
-        debug_line("sendArrayBuffer : " + hex_stream.str());
+        debug_line(std::format("sendArrayBuffer : {}", bytes_to_hex_string(bytes, false, " ")));
     }
 
     {
@@ -360,15 +376,19 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     }
 
     beast::error_code ec;
+    tls_ws* tls_ws_local = nullptr;
+    plain_ws* plain_ws_local = nullptr;
     {
         std::lock_guard<std::mutex> ws_lock(ws_mutex_);
-        if (tls_ws_) {
-            tls_ws_->write(net::buffer(bytes), ec);
-        } else if (plain_ws_) {
-            plain_ws_->write(net::buffer(bytes), ec);
-        } else {
-            return {};
-        }
+        tls_ws_local = tls_ws_.get();
+        plain_ws_local = plain_ws_.get();
+    }
+    if (tls_ws_local) {
+        tls_ws_local->write(net::buffer(bytes), ec);
+    } else if (plain_ws_local) {
+        plain_ws_local->write(net::buffer(bytes), ec);
+    } else {
+        return {};
     }
 
     if (ec) {
@@ -379,48 +399,109 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     return bytes;
 }
 
-bool AngelTcpConnection::recv_once() {
-    if (!is_connected()) {
-        return false;
+void AngelTcpConnection::start_read_loop() {
+    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+    if (read_loop_running_) {
+        return;
+    }
+    stop_read_loop_.store(false);
+    read_loop_running_ = true;
+    arm_async_read();
+}
+
+void AngelTcpConnection::stop_read_loop(const bool join_thread) {
+    (void) join_thread;
+    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+    stop_read_loop_.store(true);
+    read_loop_running_ = false;
+    async_read_buffer_.consume(async_read_buffer_.size());
+    adf_cv_.notify_all();
+}
+
+void AngelTcpConnection::arm_async_read() {
+    if (stop_read_loop_.load()) {
+        std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+        read_loop_running_ = false;
+        return;
     }
 
-    beast::flat_buffer buffer;
-    beast::error_code ec;
     {
         std::lock_guard<std::mutex> ws_lock(ws_mutex_);
         if (tls_ws_) {
-            tls_ws_->read(buffer, ec);
-        } else if (plain_ws_) {
-            plain_ws_->read(buffer, ec);
-        } else {
-            return false;
+            tls_ws_->async_read(async_read_buffer_, [this](const beast::error_code ec, const std::size_t) {
+                if (stop_read_loop_.load()) {
+                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+                    read_loop_running_ = false;
+                    return;
+                }
+                if (ec) {
+                    debug_line(std::format("async_read error: {}", ec.message()));
+                    on_close();
+                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+                    read_loop_running_ = false;
+                    return;
+                }
+
+                const auto data = async_read_buffer_.cdata();
+                std::vector<uint8_t> bytes(data.size());
+                boost::asio::buffer_copy(boost::asio::buffer(bytes), data);
+                async_read_buffer_.consume(async_read_buffer_.size());
+
+                ByteArray packet;
+                packet.allocate(bytes.size());
+                for (const auto byte : bytes) {
+                    packet.write_unsigned_byte(byte);
+                }
+                packet.reset();
+
+                auto result = on_message(packet, false);
+                if (!result.has_value()) {
+                    debug_line("async_read parse failed: " + result.error());
+                }
+                arm_async_read();
+            });
+            return;
+        }
+
+        if (plain_ws_) {
+            plain_ws_->async_read(async_read_buffer_, [this](const beast::error_code ec, const std::size_t) {
+                if (stop_read_loop_.load()) {
+                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+                    read_loop_running_ = false;
+                    return;
+                }
+                if (ec) {
+                    debug_line(std::format("async_read error: {}", ec.message()));
+                    on_close();
+                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+                    read_loop_running_ = false;
+                    return;
+                }
+
+                const auto data = async_read_buffer_.cdata();
+                std::vector<uint8_t> bytes(data.size());
+                boost::asio::buffer_copy(boost::asio::buffer(bytes), data);
+                async_read_buffer_.consume(async_read_buffer_.size());
+
+                ByteArray packet;
+                packet.allocate(bytes.size());
+                for (const auto byte : bytes) {
+                    packet.write_unsigned_byte(byte);
+                }
+                packet.reset();
+
+                auto result = on_message(packet, false);
+                if (!result.has_value()) {
+                    debug_line("async_read parse failed: " + result.error());
+                }
+                arm_async_read();
+            });
+            return;
         }
     }
 
-    if (ec) {
-        debug_line("recv_once read error: " + ec.message());
-        on_close();
-        return false;
-    }
-
-    const auto data = buffer.cdata();
-    std::vector<uint8_t> bytes;
-    bytes.resize(data.size());
-    boost::asio::buffer_copy(boost::asio::buffer(bytes), data);
-
-    ByteArray packet;
-    packet.allocate(bytes.size());
-    for (const auto byte : bytes) {
-        packet.write_unsigned_byte(byte);
-    }
-    packet.reset();
-
-    auto result = on_message(packet, false);
-    if (!result.has_value()) {
-        debug_line("recv_once parse failed: " + result.error());
-        return false;
-    }
-    return true;
+    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
+    read_loop_running_ = false;
 }
 
 AngelTcpConnection::op_result AngelTcpConnection::on_message(ByteArray packet, const bool is_local_reply) {
@@ -431,17 +512,19 @@ AngelTcpConnection::op_result AngelTcpConnection::on_message(ByteArray packet, c
     std::lock_guard<std::mutex> parse_lock(parse_mutex_);
     packet.reset();
     if (Define::IS_DEBUG) {
-        std::ostringstream hex_stream;
+        std::vector<uint8_t> debug_bytes;
+        debug_bytes.reserve(packet.length());
         ByteArray debug_copy = packet;
         while (debug_copy.bytes_available() > 0) {
-            hex_stream << std::format("0x{:02x}", debug_copy.read_unsigned_byte());
-            if (debug_copy.bytes_available() > 0) {
-                hex_stream << ", ";
-            }
+            debug_bytes.push_back(debug_copy.read_unsigned_byte());
         }
-        debug_stream() << (is_local_reply ? "[local-reply] " : "")
-                       << "TCP[" << id_ << "] recv bytes=" << packet.length() << std::endl;
-        debug_stream() << "recv data=[" << hex_stream.str() << "]" << std::endl;
+        debug_line(std::format(
+            "{}TCP[{}] recv bytes={}",
+            is_local_reply ? "[local-reply] " : "",
+            id_,
+            packet.length()
+        ));
+        debug_line(std::format("recv data=[{}]", bytes_to_hex_string(debug_bytes, true, ", ")));
     }
 
     if (!empty_adf_.has_value()) {
@@ -514,6 +597,25 @@ bool AngelTcpConnection::try_pop_adf(ADF& out_adf) {
     return true;
 }
 
+bool AngelTcpConnection::wait_pop_adf(ADF& out_adf) {
+    std::unique_lock<std::mutex> queue_lock(queue_mutex_);
+    adf_cv_.wait(queue_lock, [this]() {
+        if (!parsed_adf_queue_.empty()) {
+            return true;
+        }
+        std::lock_guard<std::mutex> state_lock(state_mutex_);
+        return state_ == connection_state::closed || state_ == connection_state::error;
+    });
+
+    if (parsed_adf_queue_.empty()) {
+        return false;
+    }
+
+    out_adf = std::move(parsed_adf_queue_.front());
+    parsed_adf_queue_.pop_front();
+    return true;
+}
+
 std::optional<ADFHead> AngelTcpConnection::try_read_adf_head(ByteArray& n) {
     for (int status = ADFHead::can_read(n); status != ADFHead::NotEnBytes; status = ADFHead::can_read(n)) {
         if (status != ADFHead::HeadReady) {
@@ -561,7 +663,8 @@ bool AngelTcpConnection::try_read_adf_body(ByteArray& n) {
         std::lock_guard<std::mutex> queue_lock(queue_mutex_);
         parsed_adf_queue_.push_back(*parsed_adf);
     }
+    adf_cv_.notify_one();
 
-    dispatch_tcp_event(TCPConnEvent::TCPCONN_ONADF, parsed_adf, {}, parsed_adf->head.cmd_id);
+    dispatch_tcp_event(EventKey::tcp_conn_on_adf, parsed_adf, {}, parsed_adf->head.cmd_id);
     return true;
 }

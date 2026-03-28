@@ -58,4 +58,5 @@ private:
     event_callback on_complete_{};
     event_callback on_error_{};
     params_t default_send_obj_{};
+    CGI2 cgi2_{};
 };

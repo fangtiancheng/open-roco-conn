@@ -1,6 +1,6 @@
 #include "event/timer.hpp"
 
-#include "event/timer_event.hpp"
+#include "event/event_key.hpp"
 #include <stdexcept>
 
 Timer::Timer(const std::chrono::milliseconds delay, const uint32_t repeat_count)
@@ -102,11 +102,9 @@ bool Timer::fire_once() {
         }
     }
 
-    TimerEvent tick_event{std::string(TimerEvent::TIMER)};
-    dispatch_event(tick_event);
+    dispatch_event(EventKey::timer);
     if (fire_complete) {
-        TimerEvent complete_event{std::string(TimerEvent::TIMER_COMPLETE)};
-        dispatch_event(complete_event);
+        dispatch_event(EventKey::timer_complete);
         return false;
     }
     return true;

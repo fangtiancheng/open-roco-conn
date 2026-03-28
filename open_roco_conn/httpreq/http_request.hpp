@@ -11,7 +11,6 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/json.hpp>
-#include <functional>
 
 class HttpRequest: public RFBase {
     boost::asio::ssl::context ssl_ctx{boost::asio::ssl::context::tlsv12_client};

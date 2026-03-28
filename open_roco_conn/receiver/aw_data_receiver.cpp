@@ -1,6 +1,6 @@
 #include "receiver/aw_data_receiver.hpp"
 #include "adf_protocol/adf_cmds_type.hpp"
-#include "event/angle_sys_event.hpp"
+#include "event/event_key.hpp"
 
 std::vector<uint32_t> AWDataReceiver::get_accept_types() const {
     return {
@@ -9,11 +9,12 @@ std::vector<uint32_t> AWDataReceiver::get_accept_types() const {
     };
 }
 
-bool AWDataReceiver::on_data_receive(const uint32_t cmd_type) {
+bool AWDataReceiver::on_data_receive(const uint32_t cmd_type, const ADF* adf) {
     (void) cmd_type;
+    (void) adf;
     if (dispatcher() == nullptr) {
         return false;
     }
-    dispatcher()->dispatch_event(std::string(AngleSysEvent::ON_SCENEDATA_INIT));
+    dispatcher()->dispatch_event(EventKey::scene_data_init);
     return true;
 }

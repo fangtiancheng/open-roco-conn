@@ -2,6 +2,8 @@
 #include "base/rf_base.hpp"
 #include "event/callback_center.hpp"
 #include "event/event_dispatcher.hpp"
+#include "event/event_key.hpp"
+#include "global/global_api.hpp"
 #include "global/user_data.hpp"
 #include "websock/angel_tcp_connection.hpp"
 #include <boost/asio/awaitable.hpp>
@@ -29,6 +31,7 @@ public:
         UserData user_data{};
         uint16_t room_id = 0;
         uint32_t ui_serial_num = 1;
+        GlobalAPI* global_api = nullptr;
     };
 
     WebSocketClient();
@@ -38,10 +41,10 @@ public:
     void set_notify_dispatcher(EventDispatcher* dispatcher);
     void set_callback_center(CallbackCenter* callback_center);
     std::string name() const;
-    std::size_t add_tcp_event_listener(const std::string& event_type, EventDispatcher::event_callback callback);
-    bool remove_tcp_event_listener(const std::string& event_type, std::size_t callback_id);
+    std::size_t add_tcp_event_listener(EventKey event_key, EventDispatcher::event_callback callback);
+    bool remove_tcp_event_listener(EventKey event_key, std::size_t callback_id);
     bool mark_login_req_listeners_registered();
-    void set_login_req_context(const UserData& user_data, uint16_t room_id, uint32_t ui_serial_num);
+    void set_login_req_context(const UserData& user_data, uint16_t room_id, uint32_t ui_serial_num, GlobalAPI* global_api);
     login_req_context get_login_req_context() const;
     bool try_open_login_req_close_guard();
     void reset_login_req_close_guard();
@@ -51,15 +54,15 @@ public:
     boost::asio::awaitable<void> send_async(std::vector<uint8_t> payload, uint32_t cmd_id = 0);
     boost::asio::awaitable<void> send_adf_async(const ADF& adf);
     bool send_adf_now(const ADF& adf);
-    boost::asio::awaitable<std::vector<uint8_t>> recv_async();
+    uint32_t tcp_id() const;
+    bool try_pop_adf(ADF& out_adf);
+    bool wait_pop_adf(ADF& out_adf);
     boost::asio::awaitable<void> heartbeat_loop();
     void push_incoming(std::vector<uint8_t> payload);
 
     state connection_state() const;
 
 private:
-    static std::vector<uint8_t> serialize_adf(const ADF& adf);
-
     std::string name_ = "WebSocketClient";
     std::string url_;
     state state_ = state::disconnected;

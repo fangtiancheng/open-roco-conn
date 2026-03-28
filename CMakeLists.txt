@@ -39,7 +39,6 @@ add_library(adf_protocol STATIC
     ${ADF_DIR}/adf_cmds_type.hpp
     ${ADF_DIR}/adf_head.cpp
     ${ADF_DIR}/adf_processors.cpp
-    ${ADF_DIR}/angel_data_event.cpp
     ${ADF_DIR}/bag_spirit_skill_data.cpp
     ${ADF_DIR}/byte_array.cpp
     ${ADF_DIR}/byte_buffer.cpp
@@ -109,6 +108,8 @@ target_link_libraries(combat PRIVATE base adf_protocol)
 
 set(EVENT_DIR ${SRC_DIR}/event)
 add_library(event STATIC
+    ${EVENT_DIR}/angel_data_event.cpp
+    ${EVENT_DIR}/angel_net_sys_event.cpp
     ${EVENT_DIR}/base_event.cpp
     ${EVENT_DIR}/callback_center.cpp
     ${EVENT_DIR}/event_dispatcher.cpp
@@ -177,6 +178,7 @@ target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json
 
 set(WEBSOCK_DIR ${SRC_DIR}/websock)
 add_library(websock STATIC
+    ${WEBSOCK_DIR}/angel_net_system.cpp
     ${WEBSOCK_DIR}/angel_tcp_connection.cpp
     ${WEBSOCK_DIR}/linger_tcp_connection.cpp
     ${WEBSOCK_DIR}/tcp_transmission.cpp

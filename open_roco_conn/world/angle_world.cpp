@@ -1,5 +1,6 @@
 #include "world/angle_world.hpp"
 #include "event/angle_sys_event.hpp"
+#include "event/event_key.hpp"
 
 void AngleWorld::initialize(EventDispatcher& dispatcher) {
     dispatcher_ = &dispatcher;
@@ -7,7 +8,7 @@ void AngleWorld::initialize(EventDispatcher& dispatcher) {
     is_online_ = true;
 
     data_receiver_.initialize(dispatcher_);
-    dispatcher_->add_event_listener(std::string(AngleSysEvent::ON_SCENEDATA_INIT), [this]() {
+    dispatcher_->add_event_listener(EventKey::scene_data_init, [this]() {
         on_scene_data_init();
     });
 }

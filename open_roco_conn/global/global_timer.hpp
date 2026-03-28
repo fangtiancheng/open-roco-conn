@@ -22,9 +22,6 @@ public:
     GlobalTimer(const GlobalTimer&) = delete;
     GlobalTimer& operator=(const GlobalTimer&) = delete;
 
-    static GlobalTimer& instance();
-    static void init();
-
     bool register_timer(
         const std::string& name,
         std::chrono::milliseconds interval,

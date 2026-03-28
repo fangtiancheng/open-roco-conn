@@ -7,18 +7,18 @@ void ARDataReceiver::set_ignore_net_data(const bool ignore) {
 
 void ARDataReceiver::add_role(const uint32_t role_uin) {
     last_role_uin_ = role_uin;
-    on_data_receive(ADFCmdsType::T_SOneInScene);
+    on_data_receive(ADFCmdsType::T_SOneInScene, nullptr);
 }
 
 void ARDataReceiver::remove_role(const uint32_t role_uin) {
     last_role_uin_ = role_uin;
-    on_data_receive(ADFCmdsType::T_SOneOutScene);
+    on_data_receive(ADFCmdsType::T_SOneOutScene, nullptr);
 }
 
 void ARDataReceiver::change_role_state(const uint32_t role_uin, const uint32_t state_type) {
     last_role_uin_ = role_uin;
     last_state_type_ = state_type;
-    on_data_receive(ADFCmdsType::T_StateDataChange);
+    on_data_receive(ADFCmdsType::T_StateDataChange, nullptr);
 }
 
 std::vector<uint32_t> ARDataReceiver::get_accept_types() const {
@@ -33,7 +33,8 @@ std::vector<uint32_t> ARDataReceiver::get_accept_types() const {
     };
 }
 
-bool ARDataReceiver::on_data_receive(const uint32_t cmd_type) {
+bool ARDataReceiver::on_data_receive(const uint32_t cmd_type, const ADF* adf) {
+    (void) adf;
     if (ignore_net_data_) {
         return true;
     }

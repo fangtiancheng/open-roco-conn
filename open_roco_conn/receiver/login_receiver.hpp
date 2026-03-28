@@ -7,7 +7,7 @@
 
 class LoginReceiver: public AbstractDataReceiver {
 public:
-    using receive_handler = std::function<void(uint32_t cmd_type)>;
+    using receive_handler = std::function<void(uint32_t cmd_type, const ADF& adf)>;
     using loading_callback = std::function<void(bool waiting)>;
     using error_callback = std::function<void(bool has_error)>;
 
@@ -24,7 +24,7 @@ public:
 
 protected:
     std::vector<uint32_t> get_accept_types() const override;
-    bool on_data_receive(uint32_t cmd_type) override;
+    bool on_data_receive(uint32_t cmd_type, const ADF* adf) override;
 
 private:
     receive_handler receive_handler_{};

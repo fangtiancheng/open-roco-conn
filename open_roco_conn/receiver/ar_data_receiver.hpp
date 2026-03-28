@@ -16,7 +16,7 @@ public:
 
 protected:
     std::vector<uint32_t> get_accept_types() const override;
-    bool on_data_receive(uint32_t cmd_type) override;
+    bool on_data_receive(uint32_t cmd_type, const ADF* adf) override;
 
 private:
     bool ignore_net_data_ = true;

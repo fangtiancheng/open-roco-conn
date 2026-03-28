@@ -34,7 +34,7 @@ const std::string& CGILoader::cgi_root() const {
 }
 
 void CGILoader::set_mock_handler(CGI2::mock_handler handler) {
-    CGI2::set_mock_handler(std::move(handler));
+    cgi2_.set_mock_handler(std::move(handler));
 }
 
 void CGILoader::set_on_complete(event_callback callback) {
@@ -88,7 +88,7 @@ boost::asio::awaitable<CGILoader::result> CGILoader::send_impl(
     has_pending_event_ = true;
     PendingGuard pending_guard{has_pending_event_};
     auto request_data = get_send_obj(send_data);
-    auto result = co_await CGI2::call(http_request_, cgi_root_, path_or_url, request_data, true, false, false);
+    auto result = co_await cgi2_.call(http_request_, cgi_root_, path_or_url, request_data, true, false, false);
 
     if (!result.has_value()) {
         CgiEvent event{};
