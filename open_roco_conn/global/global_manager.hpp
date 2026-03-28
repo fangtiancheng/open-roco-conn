@@ -1,6 +1,7 @@
 #pragma once
 #include "angle_main.hpp"
 #include "base/rf_base.hpp"
+#include "event/callback_center.hpp"
 #include "global/global_game_info.hpp"
 #include "global/user_data.hpp"
 #include <functional>
@@ -29,6 +30,8 @@ public:
     const UserData& user_data() const;
     void set_global_game_info(GlobalGameInfo* info);
     GlobalGameInfo* global_game_info() const;
+    void set_callback_center(CallbackCenter* callback_center);
+    CallbackCenter* callback_center() const;
     void set_rebirth_data_proxy(ReBirthDataProxy* proxy);
     ReBirthDataProxy* rebirth_data_proxy() const;
     void set_mock_mode(bool value);
@@ -44,6 +47,7 @@ private:
     hook on_all_res_done_;
     bool mock_mode_ = false;
     GlobalGameInfo* global_game_info_ = nullptr;
+    CallbackCenter* callback_center_ = nullptr;
     ReBirthDataProxy* rebirth_data_proxy_ = nullptr;
     UserData user_data_{};
     std::unique_ptr<AngleMain> angle_main_{};

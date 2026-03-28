@@ -46,6 +46,10 @@ void AngleMain::set_bootstrap_room_id(const uint16_t room_id) {
     bootstrap_room_id_ = room_id;
 }
 
+void AngleMain::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
 const UserData& AngleMain::user_data() const {
     return user_data_;
 }
@@ -62,6 +66,9 @@ void AngleMain::initialize() {
     io_context_.restart();
     work_guard_.emplace(boost::asio::make_work_guard(io_context_));
     web_socket_client_.set_name("AngleMain-WebSocketClient");
+    angle_event_manager_.set_callback_center(callback_center_);
+    web_socket_client_.set_notify_dispatcher(&angle_event_manager_.angel_event_dispatcher());
+    web_socket_client_.set_callback_center(callback_center_);
 
     io_thread_ = std::thread([this]() {
         io_context_.run();
@@ -167,15 +174,19 @@ void AngleMain::finalize() {
 
 boost::asio::awaitable<void> AngleMain::async_bootstrap() {
     const std::string ws_url = std::format("wss://zone{}.17roco.qq.com", user_data_.zid);
-    const bool connected = co_await web_socket_client_.connect_async(ws_url);
-    if (!connected || stop_async_.load()) {
-        on_system_net_closed();
-        co_return;
+
+    // Keep JS loginReq flow: register tcp listeners before opening the socket so
+    // TCPCONN_CONNECTED can drive onTCPConnect -> sendLoginConnData.
+    auto login_req_result = co_await ServerListUI::login_req(web_socket_client_, user_data_, bootstrap_room_id_, 1);
+    if (!login_req_result.has_value() && Define::IS_DEBUG) {
+        debug_line("loginReq setup failed: " + login_req_result.error());
     }
 
-    auto login_result = co_await ServerListUI::login_logic(web_socket_client_, user_data_, bootstrap_room_id_, 1);
-    if (!login_result.has_value() && Define::IS_DEBUG) {
-        debug_line("login room send skipped: " + login_result.error());
+    const bool connected = co_await web_socket_client_.connect_async(ws_url);
+    if (!connected || stop_async_.load()) {
+        ServerListUI::on_tcp_connect_close("connect failed");
+        on_system_net_closed();
+        co_return;
     }
 
     boost::asio::co_spawn(io_context_, web_socket_client_.heartbeat_loop(), boost::asio::detached);
@@ -187,6 +198,7 @@ boost::asio::awaitable<void> AngleMain::recv_loop() {
     while (!stop_async_.load()) {
         auto bytes = co_await web_socket_client_.recv_async();
         if (bytes.empty()) {
+            ServerListUI::on_tcp_connect_close("socket closed");
             on_system_net_closed();
             break;
         }

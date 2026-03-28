@@ -1,7 +1,7 @@
 #pragma once
 #include "base/rf_base.hpp"
 #include "event/event_dispatcher.hpp"
-#include "world/aw_data_receiver.hpp"
+#include "receiver/aw_data_receiver.hpp"
 #include <string_view>
 
 class AngleWorld: public RFBase {

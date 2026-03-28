@@ -13,6 +13,7 @@ void AngleWorld::initialize(EventDispatcher& dispatcher) {
 }
 
 void AngleWorld::finalize() {
+    data_receiver_.finalize();
     is_online_ = false;
     is_scene_init_ = false;
     dispatcher_ = nullptr;

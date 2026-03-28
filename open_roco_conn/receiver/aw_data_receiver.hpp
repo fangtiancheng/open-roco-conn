@@ -1,5 +1,5 @@
 #pragma once
-#include "world/abstract_data_receiver.hpp"
+#include "receiver/abstract_data_receiver.hpp"
 #include <cstdint>
 #include <string_view>
 #include <vector>

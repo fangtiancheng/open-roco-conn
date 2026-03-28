@@ -12,7 +12,8 @@ public:
 
     virtual ~AbstractDataReceiver() = default;
 
-    void initialize(EventDispatcher* dispatcher);
+    virtual void initialize(EventDispatcher* dispatcher);
+    virtual void finalize();
     bool receive(uint32_t cmd_type);
 
 protected:

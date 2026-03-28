@@ -1,6 +1,7 @@
 #pragma once
 #include "base/rf_base.hpp"
 #include "angle_event_manager.hpp"
+#include "event/callback_center.hpp"
 #include "global/user_data.hpp"
 #include "login/server_info.hpp"
 #include "world/angle_world.hpp"
@@ -28,6 +29,7 @@ public:
     void set_on_refresh_html(hook callback);
     void set_bootstrap_user_data(const UserData& data);
     void set_bootstrap_room_id(uint16_t room_id);
+    void set_callback_center(CallbackCenter* callback_center);
     const UserData& user_data() const;
 
     void initialize();
@@ -63,6 +65,7 @@ private:
     hook on_refresh_html_;
     UserData user_data_{};
     uint16_t bootstrap_room_id_ = 0;
+    CallbackCenter* callback_center_ = nullptr;
     std::unique_ptr<AngleWorld> world_{};
     AngleEventManager angle_event_manager_{};
     WebSocketClient web_socket_client_{};

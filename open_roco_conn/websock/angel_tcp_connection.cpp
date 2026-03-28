@@ -2,10 +2,10 @@
 
 #include "adf_protocol/adf_cmds_type.hpp"
 #include "base/define.hpp"
+#include "event/notify_def.hpp"
+#include "event/tcp_conn_event.hpp"
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/beast/core/buffers_to_string.hpp>
-#include <boost/beast/core/error.hpp>
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
 #include <format>
@@ -20,6 +20,9 @@ namespace ssl = net::ssl;
 namespace {
 uint32_t g_constructor_counter = 0;
 }
+
+std::mutex AngelTcpConnection::protobuf_cmd_mutex_{};
+std::unordered_set<uint32_t> AngelTcpConnection::protobuf_cmd_ids_{};
 
 AngelTcpConnection::AngelTcpConnection(const uint32_t id)
     : id_(id) {
@@ -43,6 +46,24 @@ uint32_t AngelTcpConnection::get_id() const {
 
 void AngelTcpConnection::set_policy_port(const uint16_t port) {
     policy_port = port;
+}
+
+void AngelTcpConnection::set_notify_dispatcher(EventDispatcher* dispatcher) {
+    notify_dispatcher_ = dispatcher;
+}
+
+void AngelTcpConnection::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
+void AngelTcpConnection::register_protobuf_cmd(const uint32_t cmd_id) {
+    std::lock_guard<std::mutex> lock(protobuf_cmd_mutex_);
+    protobuf_cmd_ids_.insert(cmd_id);
+}
+
+bool AngelTcpConnection::is_protobuf_cmd(const uint32_t cmd_id) {
+    std::lock_guard<std::mutex> lock(protobuf_cmd_mutex_);
+    return protobuf_cmd_ids_.contains(cmd_id);
 }
 
 std::optional<AngelTcpConnection::parsed_endpoint> AngelTcpConnection::parse_endpoint(
@@ -183,11 +204,15 @@ void AngelTcpConnection::on_open() {
     if (Define::IS_DEBUG) {
         debug_line(std::format("on_open name={}, id={}", name_, id_));
     }
+    dispatch_tcp_event(TCPConnEvent::TCPCONN_CONNECTED);
 }
 
 void AngelTcpConnection::on_error() {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    state_ = connection_state::error;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        state_ = connection_state::error;
+    }
+    dispatch_tcp_event(TCPConnEvent::TCPCONN_ERROR, {}, "[AngelTcpConnection] [error]");
 }
 
 void AngelTcpConnection::on_close() {
@@ -198,10 +223,86 @@ void AngelTcpConnection::on_close() {
     if (Define::IS_DEBUG) {
         debug_line(std::format("on_close name={}, id={}", name_, id_));
     }
+    dispatch_tcp_event(TCPConnEvent::TCPCONN_CLOSED);
 }
 
 void AngelTcpConnection::set_mock_response_provider(mock_response_provider provider) {
     mock_response_provider_ = std::move(provider);
+}
+
+void AngelTcpConnection::send_initial_data() {
+}
+
+std::vector<uint8_t> AngelTcpConnection::byte_array_to_vector(const ByteArray& byte_array) {
+    ByteArray copy = byte_array;
+    copy.reset();
+
+    std::vector<uint8_t> bytes;
+    bytes.reserve(copy.length());
+    while (copy.bytes_available() > 0) {
+        bytes.push_back(copy.read_unsigned_byte());
+    }
+    return bytes;
+}
+
+std::optional<uint32_t> AngelTcpConnection::to_callback_event_id(const std::string_view event_type) {
+    if (event_type == NotifyDef::ANGEL_NET_ON_GET_A_SOCKET_RAW_DATA) {
+        return NotifyDef::CB_ANGEL_NET_ON_GET_A_SOCKET_RAW_DATA;
+    }
+    if (event_type == NotifyDef::ANGEL_NET_ON_SEND_A_SOCKET_RAW_DATA) {
+        return NotifyDef::CB_ANGEL_NET_ON_SEND_A_SOCKET_RAW_DATA;
+    }
+    if (event_type == NotifyDef::ANGEL_NET_ON_GET_A_PROTOBUF_RAW_DATA) {
+        return NotifyDef::CB_ANGEL_NET_ON_GET_A_PROTOBUF_RAW_DATA;
+    }
+    if (event_type == NotifyDef::ANGEL_NET_ON_SEND_A_PROTOBUF_RAW_DATA) {
+        return NotifyDef::CB_ANGEL_NET_ON_SEND_A_PROTOBUF_RAW_DATA;
+    }
+    if (event_type == NotifyDef::ANGEL_NET_ON_GET_A_RAW_DATA) {
+        return NotifyDef::CB_ANGEL_NET_ON_GET_A_RAW_DATA;
+    }
+    if (event_type == NotifyDef::ANGEL_NET_ON_SEND_A_RAW_DATA) {
+        return NotifyDef::CB_ANGEL_NET_ON_SEND_A_RAW_DATA;
+    }
+    return std::nullopt;
+}
+
+void AngelTcpConnection::dispatch_tcp_event(std::string_view event_type,
+                                            std::shared_ptr<ADF> adf,
+                                            std::string message,
+                                            const uint32_t data_type) {
+    TCPConnEvent event(std::string(event_type), id_);
+    if (adf) {
+        event.set_adf(std::move(adf));
+    }
+    event.message = std::move(message);
+    event.data_type = data_type;
+    dispatch_event(event);
+}
+
+void AngelTcpConnection::dispatch_notify_event(std::string_view event_type,
+                                               std::vector<uint8_t> raw_bytes,
+                                               std::optional<ADFHead> head,
+                                               std::shared_ptr<ADF> adf,
+                                               const bool is_send) {
+    auto payload = std::make_shared<NetNotifyPayload>();
+    payload->raw_bytes = std::move(raw_bytes);
+    payload->head = std::move(head);
+    payload->adf = std::move(adf);
+    payload->sender = this;
+    payload->is_send = is_send;
+    payload->is_protobuf = payload->head.has_value() && is_protobuf_cmd(payload->head->cmd_id);
+
+    if (callback_center_ != nullptr) {
+        if (const auto callback_event_id = to_callback_event_id(event_type); callback_event_id.has_value()) {
+            callback_center_->enqueue(callback_event_id.value(), payload, this);
+        }
+    }
+
+    if (notify_dispatcher_ != nullptr) {
+        NotifyDef event(std::string(event_type), payload);
+        notify_dispatcher_->dispatch_event(event);
+    }
 }
 
 std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
@@ -238,6 +339,14 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
         std::lock_guard<std::mutex> queue_lock(queue_mutex_);
         sent_bytes_queue_.push_back(bytes);
     }
+
+    const auto adf_copy = std::make_shared<ADF>(adf);
+    if (is_protobuf_cmd(adf.head.cmd_id)) {
+        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_SEND_A_PROTOBUF_RAW_DATA, bytes, adf.head, adf_copy, true);
+    } else {
+        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_SEND_A_SOCKET_RAW_DATA, bytes, adf.head, adf_copy, true);
+    }
+    dispatch_notify_event(NotifyDef::ANGEL_NET_ON_SEND_A_RAW_DATA, bytes, adf.head, adf_copy, true);
 
     if (mock_response_provider_) {
         auto maybe_mock = mock_response_provider_(adf.head.cmd_id);
@@ -439,7 +548,20 @@ bool AngelTcpConnection::try_read_adf_body(ByteArray& n) {
         }
     }
 
-    std::lock_guard<std::mutex> queue_lock(queue_mutex_);
-    parsed_adf_queue_.push_back(*empty_adf_);
+    auto parsed_adf = std::make_shared<ADF>(*empty_adf_);
+    const auto body_bytes = byte_array_to_vector(parsed_adf->body);
+    if (is_protobuf_cmd(parsed_adf->head.cmd_id)) {
+        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_GET_A_PROTOBUF_RAW_DATA, body_bytes, parsed_adf->head, parsed_adf, false);
+    } else {
+        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_GET_A_SOCKET_RAW_DATA, body_bytes, parsed_adf->head, parsed_adf, false);
+    }
+    dispatch_notify_event(NotifyDef::ANGEL_NET_ON_GET_A_RAW_DATA, body_bytes, parsed_adf->head, parsed_adf, false);
+
+    {
+        std::lock_guard<std::mutex> queue_lock(queue_mutex_);
+        parsed_adf_queue_.push_back(*parsed_adf);
+    }
+
+    dispatch_tcp_event(TCPConnEvent::TCPCONN_ONADF, parsed_adf, {}, parsed_adf->head.cmd_id);
     return true;
 }

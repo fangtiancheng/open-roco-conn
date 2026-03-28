@@ -20,9 +20,64 @@ void WebSocketClient::set_name(const std::string& name) {
     name_ = name;
 }
 
+void WebSocketClient::set_notify_dispatcher(EventDispatcher* dispatcher) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    tcp_connection_.set_notify_dispatcher(dispatcher);
+}
+
+void WebSocketClient::set_callback_center(CallbackCenter* callback_center) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    tcp_connection_.set_callback_center(callback_center);
+}
+
 std::string WebSocketClient::name() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return name_;
+}
+
+std::size_t WebSocketClient::add_tcp_event_listener(const std::string& event_type, EventDispatcher::event_callback callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return tcp_connection_.add_event_listener(event_type, std::move(callback));
+}
+
+bool WebSocketClient::remove_tcp_event_listener(const std::string& event_type, const std::size_t callback_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return tcp_connection_.remove_event_listener(event_type, callback_id);
+}
+
+bool WebSocketClient::mark_login_req_listeners_registered() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (login_req_listeners_registered_) {
+        return false;
+    }
+    login_req_listeners_registered_ = true;
+    return true;
+}
+
+void WebSocketClient::set_login_req_context(const UserData& user_data, const uint16_t room_id, const uint32_t ui_serial_num) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    login_req_ctx_.user_data = user_data;
+    login_req_ctx_.room_id = room_id;
+    login_req_ctx_.ui_serial_num = ui_serial_num;
+}
+
+WebSocketClient::login_req_context WebSocketClient::get_login_req_context() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return login_req_ctx_;
+}
+
+bool WebSocketClient::try_open_login_req_close_guard() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (login_req_close_guard_opened_) {
+        return false;
+    }
+    login_req_close_guard_opened_ = true;
+    return true;
+}
+
+void WebSocketClient::reset_login_req_close_guard() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    login_req_close_guard_opened_ = false;
 }
 
 boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
@@ -50,9 +105,13 @@ boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
 }
 
 void WebSocketClient::disconnect() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    state_ = state::disconnected;
-    stop_heartbeat_.store(true);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        state_ = state::disconnected;
+        stop_heartbeat_.store(true);
+    }
+    // close() may synchronously dispatch TCPCONN_CLOSED listeners. Avoid holding
+    // WebSocketClient::mutex_ here to prevent re-entrant deadlock.
     tcp_connection_.close();
 }
 
@@ -80,7 +139,7 @@ boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> pa
     }
     adf.body.reset();
     auto sent = tcp_connection_.send_data(adf);
-    debug_line(std::format("cmd=0x{:#x} send bytes: {}", cmd_id, sent.size()));
+    debug_line(std::format("cmd={:#x} send bytes: {}", cmd_id, sent.size()));
     co_return;
 }
 
@@ -102,8 +161,25 @@ boost::asio::awaitable<void> WebSocketClient::send_adf_async(const ADF& adf) {
 
     ADF copy = adf;
     auto sent = tcp_connection_.send_data(copy);
-    debug_line(std::format("cmd=0x{:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
+    debug_line(std::format("cmd={:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
     co_return;
+}
+
+bool WebSocketClient::send_adf_now(const ADF& adf) {
+    state current_state;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        current_state = state_;
+    }
+
+    if (current_state != state::connected) {
+        return false;
+    }
+
+    ADF copy = adf;
+    auto sent = tcp_connection_.send_data(copy);
+    debug_line(std::format("cmd={:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
+    return !sent.empty();
 }
 
 boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {

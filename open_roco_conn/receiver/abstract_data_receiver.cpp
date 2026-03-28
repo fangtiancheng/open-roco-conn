@@ -1,8 +1,12 @@
-﻿#include "world/abstract_data_receiver.hpp"
+#include "receiver/abstract_data_receiver.hpp"
 #include <algorithm>
 
 void AbstractDataReceiver::initialize(EventDispatcher* dispatcher) {
     global_event_dist_ = dispatcher;
+}
+
+void AbstractDataReceiver::finalize() {
+    global_event_dist_ = nullptr;
 }
 
 bool AbstractDataReceiver::receive(const uint32_t cmd_type) {

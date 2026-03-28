@@ -96,6 +96,7 @@ boost::asio::awaitable<void> run_real_login_pre_room_flow(AppContext& ctx) {
     auto& manager = ctx.global_manager;
     manager.set_user_data(ctx.user_data);
     manager.set_global_game_info(&ctx.global_game_info);
+    manager.set_callback_center(&ctx.callback_center);
     manager.set_mock_mode(false);
     manager.set_on_after_loader([&ctx]() {
         auto* angle_main = ctx.global_manager.angle_main();

@@ -1,5 +1,6 @@
 #pragma once
 #include "base/rf_base.hpp"
+#include "event/callback_center.hpp"
 #include "event/event_dispatcher.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -37,6 +38,8 @@ public:
     bool cmd_executed(int32_t cmd_type, void* arg = nullptr);
 
     EventDispatcher& angel_event_dispatcher();
+    void set_callback_center(CallbackCenter* callback_center);
+    CallbackCenter& callback_center();
 
 private:
     void on_enter_frame();
@@ -44,6 +47,7 @@ private:
     void on_render();
 
     EventDispatcher global_dispatcher_;
+    CallbackCenter* callback_center_ = nullptr;
     std::unordered_map<int32_t, cmd_listener> cmd_listeners_;
     std::unordered_map<std::size_t, frame_listener> tick_listeners_;
     std::unordered_map<std::size_t, frame_listener> render_listeners_;

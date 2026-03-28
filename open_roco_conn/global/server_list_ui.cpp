@@ -1,4 +1,5 @@
 #include "global/server_list_ui.hpp"
+#include "event/tcp_conn_event.hpp"
 #include "global/global_api.hpp"
 #include "login/login_data_processor.hpp"
 #include <boost/json.hpp>
@@ -28,6 +29,59 @@ std::expected<int, std::string> int_from_field(const boost::json::object& obj, c
     }
     return std::unexpected(std::string("invalid type for field: ") + key);
 }
+}
+
+void ServerListUI::ensure_login_req_listeners(WebSocketClient& web_socket_client) {
+    if (!web_socket_client.mark_login_req_listeners_registered()) {
+        return;
+    }
+
+    web_socket_client.add_tcp_event_listener(
+        std::string(TCPConnEvent::TCPCONN_CONNECTED),
+        [&web_socket_client](const BaseEvent&) {
+            web_socket_client.reset_login_req_close_guard();
+            const auto ctx = web_socket_client.get_login_req_context();
+
+            ServerInfo server_info{};
+            const uint16_t selected_room_id = ctx.room_id == 0
+                ? static_cast<uint16_t>(ctx.user_data.rec_server_idx)
+                : ctx.room_id;
+            server_info.uin = ctx.user_data.uin;
+            server_info.session_key = ctx.user_data.get_session_key();
+            server_info.skey = ctx.user_data.skey;
+            server_info.pskey = ctx.user_data.pskey;
+            server_info.room_id = selected_room_id;
+
+            (void) send_login_conn_data_now(web_socket_client, server_info, ctx.ui_serial_num);
+        }
+    );
+
+    web_socket_client.add_tcp_event_listener(
+        std::string(TCPConnEvent::TCPCONN_ERROR),
+        [&web_socket_client](const BaseEvent&) {
+            if (web_socket_client.try_open_login_req_close_guard()) {
+                on_tcp_connect_close("tcp error");
+            }
+        }
+    );
+
+    web_socket_client.add_tcp_event_listener(
+        std::string(TCPConnEvent::TCPCONN_TIMEOUT),
+        [&web_socket_client](const BaseEvent&) {
+            if (web_socket_client.try_open_login_req_close_guard()) {
+                on_tcp_connect_close("tcp timeout");
+            }
+        }
+    );
+
+    web_socket_client.add_tcp_event_listener(
+        std::string(TCPConnEvent::TCPCONN_CLOSED),
+        [&web_socket_client](const BaseEvent&) {
+            if (web_socket_client.try_open_login_req_close_guard()) {
+                on_tcp_connect_close("tcp closed");
+            }
+        }
+    );
 }
 
 ServerListUI::RoomInfo::result ServerListUI::RoomInfo::from_json(const boost::json::value& value) {
@@ -262,6 +316,76 @@ boost::asio::awaitable<ServerListUI::result> ServerListUI::login_logic(
     RFBase::debug_stream("ServerListUI") << "loginLogic roomID=" << selected_room_id
                                          << " uin=" << server_info.uin << std::endl;
     co_return co_await send_login_conn_data(web_socket_client, server_info, ui_serial_num);
+}
+
+boost::asio::awaitable<ServerListUI::result> ServerListUI::login_req(
+    WebSocketClient& web_socket_client,
+    const UserData& user_data,
+    const uint16_t room_id,
+    const uint32_t ui_serial_num
+) {
+    const uint16_t selected_room_id = room_id == 0 ? static_cast<uint16_t>(user_data.rec_server_idx) : room_id;
+    RFBase::debug_stream("ServerListUI") << "loginReq zid=" << user_data.zid
+                                         << " roomID=" << selected_room_id
+                                         << " uin=" << user_data.uin
+                                         << std::endl;
+
+    ensure_login_req_listeners(web_socket_client);
+    web_socket_client.set_login_req_context(user_data, selected_room_id, ui_serial_num);
+    web_socket_client.reset_login_req_close_guard();
+
+    if (web_socket_client.connection_state() == WebSocketClient::state::connected) {
+        co_return co_await on_tcp_connect(web_socket_client, user_data, selected_room_id, ui_serial_num);
+    }
+    co_return result{};
+}
+
+boost::asio::awaitable<ServerListUI::result> ServerListUI::on_tcp_connect(
+    WebSocketClient& web_socket_client,
+    const UserData& user_data,
+    const uint16_t room_id,
+    const uint32_t ui_serial_num
+) {
+    RFBase::debug_stream("ServerListUI") << "onTCPConnect roomID="
+                                         << (room_id == 0 ? user_data.rec_server_idx : room_id)
+                                         << " zid=" << user_data.zid
+                                         << " uin=" << user_data.uin
+                                         << std::endl;
+    co_return co_await login_logic(web_socket_client, user_data, room_id, ui_serial_num);
+}
+
+void ServerListUI::on_tcp_connect_close(const std::string& reason) {
+    RFBase::debug_stream("ServerListUI") << "onTCPConnectClose"
+                                         << (reason.empty() ? "" : " reason=" + reason)
+                                         << std::endl;
+    GlobalAPI::set_is_login(false);
+    GlobalAPI::clear_want_to_scene();
+}
+
+ServerListUI::result ServerListUI::send_login_conn_data_now(
+    WebSocketClient& web_socket_client,
+    const ServerInfo& server_info,
+    const uint32_t ui_serial_num
+) {
+    if (server_info.uin == 0) {
+        return std::unexpected("ServerListUI: uin is empty");
+    }
+    if (server_info.session_key.empty()) {
+        return std::unexpected("ServerListUI: session_key is empty");
+    }
+    if (server_info.room_id == 0) {
+        return std::unexpected("ServerListUI: room_id is empty");
+    }
+
+    LoginDataProcessor processor{};
+    ADF login_adf = processor.encode(server_info, ui_serial_num);
+    const bool sent = web_socket_client.send_adf_now(login_adf);
+    if (!sent) {
+        return std::unexpected("ServerListUI: send login adf failed");
+    }
+    RFBase::debug_stream("ServerListUI") << "sendLoginConnData(now) cmd=T_LoginRoom roomID="
+                                         << server_info.room_id << std::endl;
+    return result{};
 }
 
 boost::asio::awaitable<ServerListUI::result> ServerListUI::send_login_conn_data(

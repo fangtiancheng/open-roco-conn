@@ -3,6 +3,7 @@
 #include "global_api.hpp"
 #include "global_timer.hpp"
 #include <chrono>
+#include <stdexcept>
 #include <utility>
 
 namespace {
@@ -112,11 +113,27 @@ EventDispatcher& AngleEventManager::angel_event_dispatcher() {
     return global_dispatcher_;
 }
 
+void AngleEventManager::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
+CallbackCenter& AngleEventManager::callback_center() {
+    if (callback_center_ == nullptr) {
+        throw std::runtime_error("AngleEventManager::callback_center: callback center is not configured");
+    }
+    return *callback_center_;
+}
+
 void AngleEventManager::on_enter_frame() {
     last_time_ = GlobalAPI::get_timer();
 }
 
 void AngleEventManager::on_tick() {
+    // Drain queued callback-center events on the tick thread to keep callback threading deterministic.
+    if (callback_center_ != nullptr) {
+        callback_center_->drain_pending();
+    }
+
     std::vector<frame_listener> listeners;
     {
         std::lock_guard<std::mutex> lock(mutex_);

@@ -65,6 +65,19 @@ public:
         uint16_t room_id,
         uint32_t ui_serial_num = 1
     );
+    static boost::asio::awaitable<result> login_req(
+        WebSocketClient& web_socket_client,
+        const UserData& user_data,
+        uint16_t room_id,
+        uint32_t ui_serial_num = 1
+    );
+    static boost::asio::awaitable<result> on_tcp_connect(
+        WebSocketClient& web_socket_client,
+        const UserData& user_data,
+        uint16_t room_id,
+        uint32_t ui_serial_num = 1
+    );
+    static void on_tcp_connect_close(const std::string& reason = {});
 
     static boost::asio::awaitable<result> send_login_conn_data(
         WebSocketClient& web_socket_client,
@@ -74,6 +87,13 @@ public:
     static login_reply_result handle_login_reply(const ADF& adf);
 
 private:
+    static result send_login_conn_data_now(
+        WebSocketClient& web_socket_client,
+        const ServerInfo& server_info,
+        uint32_t ui_serial_num
+    );
+    static void ensure_login_req_listeners(WebSocketClient& web_socket_client);
+
     static boost::asio::awaitable<cgi_result> request_dir_data(
         HttpRequest& http_request,
         const HttpRequest::params_t& params

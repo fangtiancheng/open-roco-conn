@@ -63,6 +63,14 @@ GlobalGameInfo* GlobalManager::global_game_info() const {
     return global_game_info_;
 }
 
+void GlobalManager::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
+CallbackCenter* GlobalManager::callback_center() const {
+    return callback_center_;
+}
+
 void GlobalManager::set_rebirth_data_proxy(ReBirthDataProxy* proxy) {
     rebirth_data_proxy_ = proxy;
 }
@@ -90,6 +98,7 @@ void GlobalManager::check_res_done() {
         if (global_game_info_ != nullptr) {
             angle_main_->set_bootstrap_room_id(global_game_info_->room_id);
         }
+        angle_main_->set_callback_center(callback_center_);
         angle_main_->set_on_logined([this]() {
             if (global_game_info_ != nullptr) {
                 global_game_info_->is_login_in = true;
