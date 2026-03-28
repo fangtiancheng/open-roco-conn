@@ -3,30 +3,34 @@ project(open_roco_conn)
 set(CMAKE_CXX_STANDARD 23)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/open_roco_conn)
 if(MSVC)
-    add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0601)
+    add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0602)
 endif()
 
-find_package(Boost CONFIG REQUIRED COMPONENTS system url json)
+find_package(Boost CONFIG REQUIRED COMPONENTS headers url json log log_setup)
+if(NOT TARGET Boost::system)
+    add_library(Boost::system INTERFACE IMPORTED)
+    set_property(TARGET Boost::system PROPERTY INTERFACE_LINK_LIBRARIES Boost::headers)
+endif()
 find_package(OpenSSL REQUIRED)
+find_package(Iconv REQUIRED)
+set(_saved_build_testing ${BUILD_TESTING})
+set(BUILD_TESTING OFF)
 add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/certify)
+set(BUILD_TESTING ${_saved_build_testing})
+unset(_saved_build_testing)
 
 # base
 set(BASE_DIR ${SRC_DIR}/base)
 add_library(base STATIC
     ${BASE_DIR}/constants.hpp
+    ${BASE_DIR}/app_const_def.hpp
     ${BASE_DIR}/define.cpp
     ${BASE_DIR}/rf_base.cpp
     ${BASE_DIR}/property_des.cpp
     ${BASE_DIR}/unicode_translator.hpp
 )
 target_include_directories(base PRIVATE ${SRC_DIR} ${BASE_DIR})
-
-set(TRANS_DIR ${SRC_DIR}/transmission)
-add_library(transmission STATIC
-    ${TRANS_DIR}/tcp_transmission.cpp
-)
-target_include_directories(transmission PRIVATE ${SRC_DIR} ${TRANS_DIR})
-target_link_libraries(transmission PRIVATE base)
+target_link_libraries(base PRIVATE Boost::log Boost::log_setup)
 
 # adf
 set(ADF_DIR ${SRC_DIR}/adf_protocol)
@@ -41,7 +45,7 @@ add_library(adf_protocol STATIC
     ${ADF_DIR}/byte_buffer.cpp
 )
 target_include_directories(adf_protocol PRIVATE ${SRC_DIR} ${ADF_DIR})
-target_link_libraries(adf_protocol PRIVATE base)
+target_link_libraries(adf_protocol PRIVATE base Iconv::Iconv)
 
 set(PERSON_DIR ${SRC_DIR}/person)
 add_library(person STATIC
@@ -124,24 +128,42 @@ add_library(login STATIC
 target_include_directories(login PRIVATE ${SRC_DIR} ${LOGIN_DIR})
 target_link_libraries(login PRIVATE base adf_protocol person)
 
-#global
+# global
 set(GLOBAL_DIR ${SRC_DIR}/global)
+set(WORLD_DIR ${SRC_DIR}/world)
+set(REBIRTH_DIR ${SRC_DIR}/rebirth)
 add_library(global STATIC
     ${GLOBAL_DIR}/angle_event_manager.cpp
     ${GLOBAL_DIR}/angle_main.cpp
+    ${GLOBAL_DIR}/game_app.cpp
+    ${GLOBAL_DIR}/game_launch.cpp
     ${GLOBAL_DIR}/global.cpp
     ${GLOBAL_DIR}/global_api.cpp
+    ${GLOBAL_DIR}/global_game_info.cpp
     ${GLOBAL_DIR}/global_manager.cpp
+    ${GLOBAL_DIR}/server_list_ui.cpp
     ${GLOBAL_DIR}/global_timer.cpp
     ${GLOBAL_DIR}/user_data.cpp
     ${GLOBAL_DIR}/web_socket_client.cpp
+    ${WORLD_DIR}/angle_world.cpp
+    ${WORLD_DIR}/abstract_data_receiver.cpp
+    ${WORLD_DIR}/aw_data_receiver.cpp
+    ${REBIRTH_DIR}/fix_temper_data_proxy.cpp
+    ${REBIRTH_DIR}/rebirth_data_proxy.cpp
 )
-target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR})
-target_link_libraries(global PRIVATE base adf_protocol websocketpp)
+target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR} ${REBIRTH_DIR})
+target_link_libraries(global PRIVATE base adf_protocol Boost::headers spirit_book httpreq login)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
+    ${HTTPREQ_DIR}/cgi2.cpp
+    ${HTTPREQ_DIR}/cgi2.hpp
+    ${HTTPREQ_DIR}/cgi_event.hpp
+    ${HTTPREQ_DIR}/cgi_loader.cpp
+    ${HTTPREQ_DIR}/cgi_loader.hpp
     ${HTTPREQ_DIR}/http_request.cpp
+    ${HTTPREQ_DIR}/angel_url_loader.cpp
+    ${HTTPREQ_DIR}/url_loader.cpp
 )
 target_include_directories(httpreq PRIVATE ${SRC_DIR} ${HTTPREQ_DIR})
 target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json OpenSSL::SSL)
@@ -149,6 +171,7 @@ target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json
 set(WEBSOCK_DIR ${SRC_DIR}/websock)
 add_library(websock STATIC
     ${WEBSOCK_DIR}/angel_tcp_connection.cpp
+    ${WEBSOCK_DIR}/tcp_transmission.cpp
 )
 target_include_directories(websock PRIVATE ${SRC_DIR} ${WEBSOCK_DIR})
 target_link_libraries(websock PRIVATE base adf_protocol global)
@@ -166,3 +189,16 @@ add_executable(test
 target_link_libraries(test PRIVATE
     Boost::headers Boost::url Boost::json OpenSSL::SSL
 )
+
+add_executable(app
+    ./open_roco_conn/app.cpp
+)
+target_include_directories(app PRIVATE ${SRC_DIR})
+target_link_libraries(app PRIVATE
+    global
+    event
+    httpreq
+    websock
+    Boost::headers
+)
+

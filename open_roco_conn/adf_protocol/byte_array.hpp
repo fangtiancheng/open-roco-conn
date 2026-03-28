@@ -1,17 +1,20 @@
 #pragma once
+#include <string_view>
 #include <vector>
 #include "base/define.hpp"
 
 class ByteArray: public RFBase{
 protected:
-    std::vector<uint32_t> _buffer;
-    bool little_endian;
+    std::vector<uint8_t> _buffer;
+    bool little_endian = false;
     size_t _byte_offset = 0;
     size_t _length = 0;
     void check_available_throw(size_t bytes_needed) const;
+    void ensure_capacity(size_t bytes_needed);
     template<typename T> T read_raw();
     template<typename T> void write_raw(T value);
 public:
+    inline static constexpr std::string_view default_charset = "gb2312";
 
     int object_encoding = 0;
     std::string endian{};

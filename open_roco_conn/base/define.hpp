@@ -9,7 +9,7 @@ public:
     const std::string_view get_param1() override{return "eb281h8zFBPKb2M3ZNLIU0k";}
     const std::string_view get_param2() override{return "Define";}
 
-    inline static constexpr bool IS_DEBUG = false;
+    inline static constexpr bool IS_DEBUG = true;
     inline static constexpr std::string_view ANGEL_VERSION = "0.1";
     inline static constexpr std::string_view AVATAR_VERSION = "0.1";
     inline static constexpr std::string_view TIMES_VERSION = "20100506";
@@ -51,3 +51,5 @@ public:
     static std::string addHttps(const std::string& t);
 
 };
+
+#define  DEBUG_PRINT printf("%s:%d\n",__FILE__,__LINE__);
