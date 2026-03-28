@@ -19,8 +19,8 @@ public:
     int object_encoding = 0;
     std::string endian{};
 
-    const std::string_view get_param1() override{return "6aa3clmfLZDQLiqwyNrV2Kk";}
-    const std::string_view get_param2() override{return "ByteArray";}
+    const std::string_view get_param1() const override{return "6aa3clmfLZDQLiqwyNrV2Kk";}
+    const std::string_view get_param2() const override{return "ByteArray";}
 
     virtual void allocate(size_t len = 8192);
     bool read_boolean();

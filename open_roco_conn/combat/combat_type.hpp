@@ -4,8 +4,8 @@
 
 class CombatType: public RFBase {
 public:
-    const std::string_view get_param1() override { return "8f853oQxalGf5dDtBUkfqkU"; }
-    const std::string_view get_param2() override { return "CombatType"; }
+    const std::string_view get_param1() const override { return "8f853oQxalGf5dDtBUkfqkU"; }
+    const std::string_view get_param2() const override { return "CombatType"; }
     static constexpr int DEFAULT = 0;
     static constexpr int PVE = 1;
     static constexpr int PVB = 2;

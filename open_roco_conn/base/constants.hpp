@@ -5,8 +5,8 @@
 
 class Constants: public RFBase{
 public:
-    const std::string_view get_param1() override{return "6f97e474aVNjaDxUZKejIaq";};
-    const std::string_view get_param2() override{return "Constants";};
+    const std::string_view get_param1() const override{return "6f97e474aVNjaDxUZKejIaq";};
+    const std::string_view get_param2() const override{return "Constants";};
     static constexpr std::string_view SO_DATA = "localDataProxy";
     static constexpr std::string_view REMOTE_DATA = "remoteDataProxy";
     static constexpr std::string_view ROLE_DATA = "roleDataProxy";

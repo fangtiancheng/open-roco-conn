@@ -63,20 +63,36 @@ GlobalGameInfo* GlobalManager::global_game_info() const {
     return global_game_info_;
 }
 
+void GlobalManager::set_global_api(GlobalAPI* api) {
+    global_api_ = api;
+}
+
+GlobalAPI* GlobalManager::global_api() const {
+    return global_api_;
+}
+
+void GlobalManager::set_global_timer(GlobalTimer* timer) {
+    global_timer_ = timer;
+}
+
+GlobalTimer* GlobalManager::global_timer() const {
+    return global_timer_;
+}
+
+void GlobalManager::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
+CallbackCenter* GlobalManager::callback_center() const {
+    return callback_center_;
+}
+
 void GlobalManager::set_rebirth_data_proxy(ReBirthDataProxy* proxy) {
     rebirth_data_proxy_ = proxy;
 }
 
 ReBirthDataProxy* GlobalManager::rebirth_data_proxy() const {
     return rebirth_data_proxy_;
-}
-
-void GlobalManager::set_mock_mode(const bool value) {
-    mock_mode_ = value;
-}
-
-bool GlobalManager::mock_mode() const {
-    return mock_mode_;
 }
 
 void GlobalManager::check_res_done() {
@@ -90,6 +106,9 @@ void GlobalManager::check_res_done() {
         if (global_game_info_ != nullptr) {
             angle_main_->set_bootstrap_room_id(global_game_info_->room_id);
         }
+        angle_main_->set_global_api(global_api_);
+        angle_main_->set_global_timer(global_timer_);
+        angle_main_->set_callback_center(callback_center_);
         angle_main_->set_on_logined([this]() {
             if (global_game_info_ != nullptr) {
                 global_game_info_->is_login_in = true;
@@ -98,9 +117,7 @@ void GlobalManager::check_res_done() {
                 (void) rebirth_data_proxy_->query();
             }
         });
-        if (!mock_mode_) {
-            angle_main_->initialize();
-        }
+        angle_main_->initialize();
     }
 
     if (on_after_loader_) {

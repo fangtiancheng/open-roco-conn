@@ -5,8 +5,8 @@ class CombatResultInfo: public RFBase {
     int _trainer_exp = 0;
 
 public:
-    const std::string_view get_param1() override { return "74597MO+/xCXpOTjSgGqUJ2"; }
-    const std::string_view get_param2() override { return "CombatResultInfo"; }
+    const std::string_view get_param1() const override { return "74597MO+/xCXpOTjSgGqUJ2"; }
+    const std::string_view get_param2() const override { return "CombatResultInfo"; }
     int type = 0;
     int combat_type = 0;
     int can_combat = 0;

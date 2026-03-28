@@ -7,8 +7,8 @@
 
 class LoginDataRepply: public RFBase, public AngelDataInputJudge{
 public:
-    const std::string_view get_param1() override { return "c5b3dnoCUFPKbVdyozuJ+/v"; }
-    const std::string_view get_param2() override { return "LoginDataRepply"; }
+    const std::string_view get_param1() const override { return "c5b3dnoCUFPKbVdyozuJ+/v"; }
+    const std::string_view get_param2() const override { return "LoginDataRepply"; }
     const std::string_view constructor_name() const override { return "LoginDataRepply"; }
     P_ReturnCode return_code;
     uint32_t room_id = 0;

@@ -10,6 +10,14 @@ bool P_ReturnCode::is_error() const {
     return code != OK;
 }
 
+int P_ReturnCode::code_value() const {
+    return code;
+}
+
+const std::string& P_ReturnCode::message_text() const {
+    return message;
+}
+
 size_t P_ReturnCode::length() const {
     if(!message.empty()) {
         ByteArray e;

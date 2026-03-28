@@ -8,8 +8,8 @@
 
 class RoleData: public RFBase{
 public:
-    const std::string_view get_param1() override{return "f6f620uIplNbIjapuzhC+bO";}
-    const std::string_view get_param2() override{return "RoleData";}
+    const std::string_view get_param1() const override{return "f6f620uIplNbIjapuzhC+bO";}
+    const std::string_view get_param2() const override{return "RoleData";}
     uint32_t avatar_type = 0, uin = 0, id = 0;
     bool role_type = false;  // false = GUEST, true = MEMBER
     std::string nick_name;

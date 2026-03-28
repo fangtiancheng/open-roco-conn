@@ -3,6 +3,7 @@
 #include "global_api.hpp"
 #include "global_timer.hpp"
 #include <chrono>
+#include <stdexcept>
 #include <utility>
 
 namespace {
@@ -12,39 +13,25 @@ constexpr const char* k_render_timer_name = "angle_event_manager_render";
 
 AngleEventManager::AngleEventManager() {
     last_time_ = GlobalAPI::get_timer();
-
-    GlobalTimer::init();
-    auto& timer = GlobalTimer::instance();
-    timer.register_timer(
-        k_tick_timer_name,
-        std::chrono::milliseconds(tick_delay_ms),
-        [this]() { on_tick(); },
-        false,
-        true
-    );
-    timer.register_timer(
-        k_render_timer_name,
-        std::chrono::milliseconds(render_delay_ms),
-        [this]() { on_render(); },
-        false,
-        true
-    );
 }
 
 AngleEventManager::~AngleEventManager() {
-    auto& timer = GlobalTimer::instance();
-    timer.unregister_timer(k_tick_timer_name);
-    timer.unregister_timer(k_render_timer_name);
+    if (timer_ != nullptr) {
+        timer_->unregister_timer(k_tick_timer_name);
+        timer_->unregister_timer(k_render_timer_name);
+    }
 }
 
 void AngleEventManager::set_render_timer(const bool enabled) {
-    auto& timer = GlobalTimer::instance();
     render_enabled_ = enabled;
-    if (enabled) {
-        timer.start(k_render_timer_name, false);
+    if (timer_ == nullptr) {
         return;
     }
-    timer.stop(k_render_timer_name);
+    if (enabled) {
+        timer_->start(k_render_timer_name, false);
+        return;
+    }
+    timer_->stop(k_render_timer_name);
 }
 
 std::size_t AngleEventManager::add_tick_listener(frame_listener listener) {
@@ -112,11 +99,48 @@ EventDispatcher& AngleEventManager::angel_event_dispatcher() {
     return global_dispatcher_;
 }
 
+void AngleEventManager::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
+CallbackCenter& AngleEventManager::callback_center() {
+    if (callback_center_ == nullptr) {
+        throw std::runtime_error("AngleEventManager::callback_center: callback center is not configured");
+    }
+    return *callback_center_;
+}
+
+void AngleEventManager::set_timer(GlobalTimer* timer) {
+    timer_ = timer;
+    if (timer_ == nullptr) {
+        return;
+    }
+    timer_->register_timer(
+        k_tick_timer_name,
+        std::chrono::milliseconds(tick_delay_ms),
+        [this]() { on_tick(); },
+        false,
+        true
+    );
+    timer_->register_timer(
+        k_render_timer_name,
+        std::chrono::milliseconds(render_delay_ms),
+        [this]() { on_render(); },
+        false,
+        true
+    );
+}
+
 void AngleEventManager::on_enter_frame() {
     last_time_ = GlobalAPI::get_timer();
 }
 
 void AngleEventManager::on_tick() {
+    // Drain queued callback-center events on the tick thread to keep callback threading deterministic.
+    if (callback_center_ != nullptr) {
+        callback_center_->drain_pending();
+    }
+
     std::vector<frame_listener> listeners;
     {
         std::lock_guard<std::mutex> lock(mutex_);

@@ -5,8 +5,8 @@
 
 class SpiritProperties : public RFBase{
 public:
-    const std::string_view get_param1() override{return "ec0c9SQqM1FTaWs4lS6Jyq1";}
-    const std::string_view get_param2() override{return "SpiritProperties";}
+    const std::string_view get_param1() const override{return "ec0c9SQqM1FTaWs4lS6Jyq1";}
+    const std::string_view get_param2() const override{return "SpiritProperties";}
     struct SpiritProperty{
         uint16_t pa;
         uint16_t pd;

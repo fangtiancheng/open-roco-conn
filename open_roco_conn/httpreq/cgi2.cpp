@@ -2,8 +2,6 @@
 
 #include <utility>
 
-CGI2::mock_handler CGI2::mock_handler_{};
-
 void CGI2::set_mock_handler(mock_handler handler) {
     mock_handler_ = std::move(handler);
 }
@@ -12,7 +10,7 @@ boost::asio::awaitable<CGI2::result> CGI2::call(
     HttpRequest& http_request,
     const std::string& cgi_root,
     const std::string& path_or_url,
-    const std::map<std::string, std::string>& params,
+    const params_t& params,
     const bool use_common_error_alert,
     const bool is_show_loading_icon,
     const bool is_encrypt

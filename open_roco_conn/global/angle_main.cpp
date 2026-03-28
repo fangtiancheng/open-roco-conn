@@ -1,5 +1,4 @@
 #include "angle_main.hpp"
-#include "adf_protocol/adf.hpp"
 #include "adf_protocol/adf_cmds_type.hpp"
 #include "base/define.hpp"
 #include "global_api.hpp"
@@ -12,7 +11,7 @@
 #include <boost/asio/use_awaitable.hpp>
 #include <chrono>
 #include <exception>
-#include <iostream>
+#include <format>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -45,6 +44,18 @@ void AngleMain::set_bootstrap_room_id(const uint16_t room_id) {
     bootstrap_room_id_ = room_id;
 }
 
+void AngleMain::set_global_api(GlobalAPI* global_api) {
+    global_api_ = global_api;
+}
+
+void AngleMain::set_global_timer(GlobalTimer* global_timer) {
+    global_timer_ = global_timer;
+}
+
+void AngleMain::set_callback_center(CallbackCenter* callback_center) {
+    callback_center_ = callback_center;
+}
+
 const UserData& AngleMain::user_data() const {
     return user_data_;
 }
@@ -54,13 +65,45 @@ void AngleMain::initialize() {
         return;
     }
 
-    GlobalAPI::init();
+    if (global_api_ != nullptr) {
+        global_api_->init();
+    }
     initialized_ = true;
     stop_async_.store(false);
 
     io_context_.restart();
     work_guard_.emplace(boost::asio::make_work_guard(io_context_));
     web_socket_client_.set_name("AngleMain-WebSocketClient");
+    angle_event_manager_.set_timer(global_timer_);
+    angle_event_manager_.set_callback_center(callback_center_);
+    web_socket_client_.set_notify_dispatcher(&angle_event_manager_.angel_event_dispatcher());
+    web_socket_client_.set_callback_center(callback_center_);
+    net_system_.initialize(angle_event_manager_.angel_event_dispatcher(), web_socket_client_);
+    login_receiver_.initialize(&angle_event_manager_.angel_event_dispatcher());
+    login_receiver_.set_receive_handler([this](const uint32_t cmd_type, const ADF& adf) {
+        if (cmd_type != ADFCmdsType::T_LoginRoom) {
+            return;
+        }
+        if (global_api_ == nullptr) {
+            return;
+        }
+        auto login_result = ServerListUI::handle_login_reply(*global_api_, adf);
+        if (login_result.has_value()) {
+            angle_event_manager_.angel_event_dispatcher().dispatch_event(std::string(AngleSysEvent::LOGIN_OK));
+            return;
+        }
+        if (Define::IS_DEBUG) {
+            debug_line("login reply handle failed: " + login_result.error());
+        }
+    });
+    net_system_.add_data_receiver(&login_receiver_);
+    login_ok_listener_id_ = angle_event_manager_.angel_event_dispatcher().add_event_listener(std::string(AngleSysEvent::LOGIN_OK), [this]() {
+        on_login_ok_event();
+    });
+    net_state_listener_id_ = angle_event_manager_.angel_event_dispatcher().add_event_listener(
+        std::string(AngelNetSysEvent::ON_STATE_CHANGE),
+        [this]() { on_net_state_change_event(); }
+    );
 
     io_thread_ = std::thread([this]() {
         io_context_.run();
@@ -73,13 +116,16 @@ void AngleMain::initialize() {
 }
 
 void AngleMain::on_logined() {
-    if (GlobalAPI::is_login()) {
+    if (global_api_ != nullptr && global_api_->is_login()) {
         return;
     }
-    GlobalAPI::set_is_login(true);
+    if (global_api_ != nullptr) {
+        global_api_->set_is_login(true);
+    }
 
     world_ = std::make_unique<AngleWorld>();
     world_->initialize(angle_event_manager_.angel_event_dispatcher());
+    net_system_.add_data_receiver(&world_->data_receiver());
 
     if (on_logined_) {
         on_logined_();
@@ -144,14 +190,31 @@ void AngleMain::get_external_api() const {
 
 void AngleMain::finalize() {
     stop_async_.store(true);
+    if (login_ok_listener_id_ != 0) {
+        angle_event_manager_.angel_event_dispatcher().remove_event_listener(std::string(AngleSysEvent::LOGIN_OK), login_ok_listener_id_);
+        login_ok_listener_id_ = 0;
+    }
+    if (net_state_listener_id_ != 0) {
+        angle_event_manager_.angel_event_dispatcher().remove_event_listener(
+            std::string(AngelNetSysEvent::ON_STATE_CHANGE),
+            net_state_listener_id_
+        );
+        net_state_listener_id_ = 0;
+    }
     web_socket_client_.disconnect();
+    net_system_.remove_data_receiver(&login_receiver_);
+    if (world_) {
+        net_system_.remove_data_receiver(&world_->data_receiver());
+    }
+    net_system_.finalize();
+    login_receiver_.finalize();
     if (work_guard_.has_value()) {
         work_guard_->reset();
         work_guard_.reset();
     }
     io_context_.stop();
     if (io_thread_.joinable()) {
-        io_thread_.join();
+        io_thread_.join();// 卡在这了
     }
 
     if (world_) {
@@ -161,63 +224,52 @@ void AngleMain::finalize() {
 
     initialized_ = false;
     is_render_ = true;
-    GlobalAPI::set_is_login(false);
+    if (global_api_ != nullptr) {
+        global_api_->set_is_login(false);
+    }
 }
 
 boost::asio::awaitable<void> AngleMain::async_bootstrap() {
-    const bool connected = co_await web_socket_client_.connect_async(std::string(AngelTcpConnection::HOST));
+    const std::string ws_url = std::format("wss://zone{}.17roco.qq.com", user_data_.zid);
+
+    // Keep JS loginReq flow: register tcp listeners before opening the socket so
+    // TCPCONN_CONNECTED can drive onTCPConnect -> sendLoginConnData.
+    if (global_api_ == nullptr) {
+        co_return;
+    }
+    auto login_req_result = co_await ServerListUI::login_req(web_socket_client_, *global_api_, user_data_, bootstrap_room_id_, 1);
+    if (!login_req_result.has_value() && Define::IS_DEBUG) {
+        debug_line("loginReq setup failed: " + login_req_result.error());
+    }
+
+    const bool connected = co_await web_socket_client_.connect_async(ws_url);
     if (!connected || stop_async_.load()) {
+            ServerListUI::on_tcp_connect_close(*global_api_, "connect failed");
         on_system_net_closed();
         co_return;
     }
 
-    auto login_result = co_await ServerListUI::login_logic(web_socket_client_, user_data_, bootstrap_room_id_, 1);
-    if (!login_result.has_value() && Define::IS_DEBUG) {
-        debug_line("login room send skipped: " + login_result.error());
-    }
-
     boost::asio::co_spawn(io_context_, web_socket_client_.heartbeat_loop(), boost::asio::detached);
-    boost::asio::co_spawn(io_context_, recv_loop(), boost::asio::detached);
     co_return;
 }
 
-boost::asio::awaitable<void> AngleMain::recv_loop() {
-    while (!stop_async_.load()) {
-        auto bytes = co_await web_socket_client_.recv_async();
-        if (bytes.empty()) {
-            on_system_net_closed();
-            break;
-        }
+void AngleMain::on_login_ok_event() {
+    on_logined();
+}
 
-        ByteArray packet;
-        packet.allocate(bytes.size());
-        for (const auto byte : bytes) {
-            packet.write_unsigned_byte(byte);
-        }
-        packet.reset();
-
-        ADF adf;
-        try {
-            adf.read_external(packet);
-        } catch (const std::exception& ex) {
-            if (Define::IS_DEBUG) {
-                debug_line(std::string("parse adf failed: ") + ex.what());
-            }
-            continue;
-        }
-
-        const uint32_t cmd_type = adf.head.cmd_id;
-        if (cmd_type == ADFCmdsType::T_LoginRoom) {
-            on_logined();
-        }
-        if (world_) {
-            world_->data_receiver().receive(cmd_type);
-        }
-
-        if (Define::IS_DEBUG) {
-            debug_stream() << "recv packet cmd=0x" << std::hex << cmd_type
-                      << std::dec << " bytes=" << bytes.size() << std::endl;
-        }
+void AngleMain::on_net_state_change_event() {
+    const auto state = net_system_.current_state();
+    if (state == std::string(AngelNetSysEvent::NS_CLOSED) || state == std::string(AngelNetSysEvent::NS_ERROR)) {
+        on_tcp_closed_or_error();
     }
-    co_return;
+}
+
+void AngleMain::on_tcp_closed_or_error() {
+    if (stop_async_.load()) {
+        return;
+    }
+    if (global_api_ != nullptr) {
+        ServerListUI::on_tcp_connect_close(*global_api_, "socket event closed/error");
+    }
+    on_system_net_closed();
 }

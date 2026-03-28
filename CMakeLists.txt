@@ -39,7 +39,6 @@ add_library(adf_protocol STATIC
     ${ADF_DIR}/adf_cmds_type.hpp
     ${ADF_DIR}/adf_head.cpp
     ${ADF_DIR}/adf_processors.cpp
-    ${ADF_DIR}/angel_data_event.cpp
     ${ADF_DIR}/bag_spirit_skill_data.cpp
     ${ADF_DIR}/byte_array.cpp
     ${ADF_DIR}/byte_buffer.cpp
@@ -109,8 +108,14 @@ target_link_libraries(combat PRIVATE base adf_protocol)
 
 set(EVENT_DIR ${SRC_DIR}/event)
 add_library(event STATIC
+    ${EVENT_DIR}/angel_data_event.cpp
+    ${EVENT_DIR}/angel_net_sys_event.cpp
     ${EVENT_DIR}/base_event.cpp
+    ${EVENT_DIR}/callback_center.cpp
     ${EVENT_DIR}/event_dispatcher.cpp
+    ${EVENT_DIR}/notify_def.cpp
+    ${EVENT_DIR}/timer.cpp
+    ${EVENT_DIR}/timer_event.cpp
     ${EVENT_DIR}/tcp_conn_event.cpp
 )
 target_include_directories(event PRIVATE ${SRC_DIR} ${EVENT_DIR})
@@ -131,6 +136,7 @@ target_link_libraries(login PRIVATE base adf_protocol person)
 # global
 set(GLOBAL_DIR ${SRC_DIR}/global)
 set(WORLD_DIR ${SRC_DIR}/world)
+set(RECEIVER_DIR ${SRC_DIR}/receiver)
 set(REBIRTH_DIR ${SRC_DIR}/rebirth)
 add_library(global STATIC
     ${GLOBAL_DIR}/angle_event_manager.cpp
@@ -145,14 +151,16 @@ add_library(global STATIC
     ${GLOBAL_DIR}/global_timer.cpp
     ${GLOBAL_DIR}/user_data.cpp
     ${GLOBAL_DIR}/web_socket_client.cpp
+    ${RECEIVER_DIR}/abstract_data_receiver.cpp
+    ${RECEIVER_DIR}/ar_data_receiver.cpp
+    ${RECEIVER_DIR}/aw_data_receiver.cpp
+    ${RECEIVER_DIR}/login_receiver.cpp
     ${WORLD_DIR}/angle_world.cpp
-    ${WORLD_DIR}/abstract_data_receiver.cpp
-    ${WORLD_DIR}/aw_data_receiver.cpp
     ${REBIRTH_DIR}/fix_temper_data_proxy.cpp
     ${REBIRTH_DIR}/rebirth_data_proxy.cpp
 )
-target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR} ${REBIRTH_DIR})
-target_link_libraries(global PRIVATE base adf_protocol Boost::headers spirit_book httpreq login)
+target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR} ${RECEIVER_DIR} ${REBIRTH_DIR})
+target_link_libraries(global PRIVATE base adf_protocol event Boost::headers spirit_book httpreq login)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
@@ -170,11 +178,13 @@ target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json
 
 set(WEBSOCK_DIR ${SRC_DIR}/websock)
 add_library(websock STATIC
+    ${WEBSOCK_DIR}/angel_net_system.cpp
     ${WEBSOCK_DIR}/angel_tcp_connection.cpp
+    ${WEBSOCK_DIR}/linger_tcp_connection.cpp
     ${WEBSOCK_DIR}/tcp_transmission.cpp
 )
 target_include_directories(websock PRIVATE ${SRC_DIR} ${WEBSOCK_DIR})
-target_link_libraries(websock PRIVATE base adf_protocol global)
+target_link_libraries(websock PRIVATE base adf_protocol event global Boost::headers OpenSSL::SSL)
 
 set(SPIRIT_BOOK_DIR ${SRC_DIR}/spirit_book)
 add_library(spirit_book STATIC

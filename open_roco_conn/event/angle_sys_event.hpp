@@ -4,8 +4,8 @@
 
 class AngleSysEvent: public RFBase {
 public:
-    const std::string_view get_param1() override { return "dc4f9SEt3dHXZkekUDL595B"; }
-    const std::string_view get_param2() override { return "AngleSysEvent"; }
+    const std::string_view get_param1() const override { return "dc4f9SEt3dHXZkekUDL595B"; }
+    const std::string_view get_param2() const override { return "AngleSysEvent"; }
 
     static constexpr std::string_view ON_SYS_EVENT = "onSystemEvent";
     static constexpr std::string_view LOGIN_OK = "loginOk";

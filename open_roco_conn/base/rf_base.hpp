@@ -1,20 +1,17 @@
 #pragma once
 #include <string_view>
 #include <cstdint>
-#include <ostream>
 #include <string>
 
 class RFBase{
 public:
     virtual ~RFBase() = default;
 
-    virtual const std::string_view get_param1() = 0;
-    virtual const std::string_view get_param2() = 0;
+    virtual const std::string_view get_param1()const = 0;
+    virtual const std::string_view get_param2()const = 0;
 
-    std::ostream& debug_stream();
-    void debug_line(const std::string& message);
+    void debug_line(const std::string& message) const;
 
-    static std::ostream& debug_stream(std::string_view tag);
     static void debug_line(std::string_view tag, const std::string& message);
 };
 

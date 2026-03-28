@@ -4,8 +4,8 @@
 
 class ADFCmdsType: public RFBase{
 public:
-    const std::string_view get_param1() override{return "6b257Sv0URPeZLzamNFG6RR";}
-    const std::string_view get_param2() override{return "ADFCmdsType";}
+    const std::string_view get_param1() const override{return "6b257Sv0URPeZLzamNFG6RR";}
+    const std::string_view get_param2() const override{return "ADFCmdsType";}
     static constexpr uint32_t T_DIR_RECOMMEND_REQ = 458753;
     static constexpr uint32_t T_DIR_RECOMMEND_REPLY = 458754;
     static constexpr uint32_t T_DIR_RANGE_REQ = 458755;

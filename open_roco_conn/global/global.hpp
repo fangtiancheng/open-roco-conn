@@ -2,6 +2,6 @@
 
 class Global: public RFBase {
 public:
-    const std::string_view get_param1() override { return "168824xc95FyppiQuDfyHoW"; }
-    const std::string_view get_param2() override { return "global"; }
+    const std::string_view get_param1() const override { return "168824xc95FyppiQuDfyHoW"; }
+    const std::string_view get_param2() const override { return "global"; }
 };

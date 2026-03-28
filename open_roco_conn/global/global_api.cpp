@@ -2,10 +2,6 @@
 #include <chrono>
 #include <format>
 
-namespace {
-bool g_is_login = false;
-}
-
 long long GlobalAPI::get_timer() {
     auto now = std::chrono::system_clock::now();
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -35,13 +31,42 @@ std::string GlobalAPI::get_timer_format() {
 }
 
 void GlobalAPI::init() {
-    g_is_login = false;
+    is_login_ = false;
+    main_role_info_.reset();
+    want_to_scene_.reset();
 }
 
-bool GlobalAPI::is_login() {
-    return g_is_login;
+bool GlobalAPI::is_login() const {
+    return is_login_;
 }
 
 void GlobalAPI::set_is_login(const bool value) {
-    g_is_login = value;
+    is_login_ = value;
+}
+
+void GlobalAPI::set_main_role_info(const RoleData& role_data) {
+    main_role_info_ = role_data;
+}
+
+std::optional<RoleData> GlobalAPI::get_main_role_info() const {
+    return main_role_info_;
+}
+
+void GlobalAPI::clear_main_role_info() {
+    main_role_info_.reset();
+}
+
+void GlobalAPI::set_want_to_scene(const uint16_t scene_id, const uint16_t scene_version) {
+    want_to_scene_ = WantToScene{
+        .scene_id = scene_id,
+        .scene_version = scene_version
+    };
+}
+
+std::optional<GlobalAPI::WantToScene> GlobalAPI::get_want_to_scene() const {
+    return want_to_scene_;
+}
+
+void GlobalAPI::clear_want_to_scene() {
+    want_to_scene_.reset();
 }

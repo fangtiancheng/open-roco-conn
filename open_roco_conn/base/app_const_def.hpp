@@ -4,8 +4,8 @@
 
 class AppConstDef: public RFBase {
 public:
-    const std::string_view get_param1() override { return "a6545G/S+JBJ5We8XegG7Gj"; }
-    const std::string_view get_param2() override { return "AppConstDef"; }
+    const std::string_view get_param1() const override { return "a6545G/S+JBJ5We8XegG7Gj"; }
+    const std::string_view get_param2() const override { return "AppConstDef"; }
 
     static constexpr std::string_view NN_V_SHOW_NIGHT_VIEW = "NN_V_SHOW_NIGHT_VIEW";
     static constexpr std::string_view NN_V_CLOSE_NIGHT_VIEW = "NN_V_CLOSE_NIGHT_VIEW";

@@ -3,8 +3,8 @@
 
 class CombatNetCmdsType: public RFBase {
 public:
-    const std::string_view get_param1() override { return "8d5b6XjIQ9GTYMz2pK8cFDc"; }
-    const std::string_view get_param2() override { return "CombatNetCmdsType"; }
+    const std::string_view get_param1() const override { return "8d5b6XjIQ9GTYMz2pK8cFDc"; }
+    const std::string_view get_param2() const override { return "CombatNetCmdsType"; }
     static constexpr uint32_t T_REQ_START = 720897;
     static constexpr uint32_t T_RESLOAD = 720898;
     static constexpr uint32_t T_REQ_FIGHT = 720899;

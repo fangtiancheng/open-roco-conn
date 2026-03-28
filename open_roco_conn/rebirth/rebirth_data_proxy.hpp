@@ -13,8 +13,8 @@
 
 class ReBirthDataProxy: public RFBase {
 public:
-    const std::string_view get_param1() override { return "43ddae2fy9Bf4Md218CxCJ2"; }
-    const std::string_view get_param2() override { return "ReBirthDataProxy"; }
+    const std::string_view get_param1() const override { return "43ddae2fy9Bf4Md218CxCJ2"; }
+    const std::string_view get_param2() const override { return "ReBirthDataProxy"; }
 
     using result = std::expected<void, std::string>;
     using query_provider = std::function<std::expected<std::vector<int>, std::string>()>;

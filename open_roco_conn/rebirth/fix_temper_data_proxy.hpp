@@ -12,8 +12,8 @@ class CGILoader;
 
 class FixTemperDataProxy: public RFBase {
 public:
-    const std::string_view get_param1() override { return "e1465z8xCxBXYmXtOYCeXNF"; }
-    const std::string_view get_param2() override { return "FixTemperDataProxy"; }
+    const std::string_view get_param1() const override { return "e1465z8xCxBXYmXtOYCeXNF"; }
+    const std::string_view get_param2() const override { return "FixTemperDataProxy"; }
 
     using result = std::expected<void, std::string>;
 

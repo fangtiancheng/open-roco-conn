@@ -5,8 +5,8 @@
 
 class STSpiritInfo: public RFBase{
 public:
-    const std::string_view get_param1() override{return "69b42lS4dVML5zYtiZQ+p1J";}
-    const std::string_view get_param2() override{return "STSpiritInfo";}
+    const std::string_view get_param1() const override{return "69b42lS4dVML5zYtiZQ+p1J";}
+    const std::string_view get_param2() const override{return "STSpiritInfo";}
     struct SpiritInfo{
         uint32_t id = 0;
         uint32_t catchTime = 0;

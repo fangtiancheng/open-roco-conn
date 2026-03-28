@@ -5,8 +5,8 @@
 
 class P_BagSpiritSkillData: public RFBase{
 public:
-    const std::string_view get_param1() override{return "f8546evogFLtrccBzV9whF4";}
-    const std::string_view get_param2() override{return "P_BagSpiritSkillData";}
+    const std::string_view get_param1() const override{return "f8546evogFLtrccBzV9whF4";}
+    const std::string_view get_param2() const override{return "P_BagSpiritSkillData";}
     uint16_t id;
     uint8_t pp_left;
     uint8_t is_heredity;

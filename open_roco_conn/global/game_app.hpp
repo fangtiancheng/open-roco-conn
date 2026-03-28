@@ -6,8 +6,8 @@
 
 class GameApp: public RFBase {
 public:
-    const std::string_view get_param1() override { return "821339EiHxN4aa0oTcepcxt"; }
-    const std::string_view get_param2() override { return "GameApp"; }
+    const std::string_view get_param1() const override { return "821339EiHxN4aa0oTcepcxt"; }
+    const std::string_view get_param2() const override { return "GameApp"; }
 
     enum class NextStep {
         none = 0,

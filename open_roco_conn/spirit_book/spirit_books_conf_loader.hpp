@@ -7,8 +7,8 @@
 
 class SpiritBooksConfLoader: public RFBase {
 public:
-    const std::string_view get_param1() override { return "68622uxkTpLdptX7ws3E06T"; }
-    const std::string_view get_param2() override { return "SpiritBooksConfLoader"; }
+    const std::string_view get_param1() const override { return "68622uxkTpLdptX7ws3E06T"; }
+    const std::string_view get_param2() const override { return "SpiritBooksConfLoader"; }
 
     using spirit_ids_result = std::expected<std::vector<std::string>, std::string>;
 

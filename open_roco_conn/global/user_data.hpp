@@ -9,12 +9,13 @@
 class UserData: public RFBase {
     std::string session_key;
 public:
-    const std::string_view get_param1() override { return "ece58QThmVB6K3E6y2evh3i"; }
-    const std::string_view get_param2() override { return "UserData"; }
+    const std::string_view get_param1() const override { return "ece58QThmVB6K3E6y2evh3i"; }
+    const std::string_view get_param2() const override { return "UserData"; }
     void add_login_log(const std::string& log);
     bool is_white(const std::string& );
     std::string get_session_key() const ;
     void set_session_key(const std::string& key) ;
+    std::string to_string() const;
     static constexpr std::array<std::string_view, 3> white_array = {"WAXSJJVAB", "BWVLJAJVZ", "BLAJWJWFB"};
     uint32_t uin = 0;
     std::string skey = "A338BCF057FBA7F3B7515605C03D928E";

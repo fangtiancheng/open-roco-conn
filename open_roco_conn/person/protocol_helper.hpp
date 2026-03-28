@@ -9,8 +9,8 @@
 
 class ProtocolHelper: public RFBase{
 public:
-    const std::string_view get_param1() override{return "33935knY35OaZvPkrnUxrok";}
-    const std::string_view get_param2() override{return "ProtocolHelper";}
+    const std::string_view get_param1() const override{return "33935knY35OaZvPkrnUxrok";}
+    const std::string_view get_param2() const override{return "ProtocolHelper";}
 
 
 //    void read_object(ByteArray&); //TODO

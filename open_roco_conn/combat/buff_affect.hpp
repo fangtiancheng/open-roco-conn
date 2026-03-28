@@ -5,8 +5,8 @@
 
 class BuffAffect: public RFBase {
 public:
-    const std::string_view get_param1() override { return "13c96jhqIFFipa7coAiSiSn"; }
-    const std::string_view get_param2() override { return "BuffAffect"; }
+    const std::string_view get_param1() const override { return "13c96jhqIFFipa7coAiSiSn"; }
+    const std::string_view get_param2() const override { return "BuffAffect"; }
     uint32_t id = 0;
     uint8_t type = 0;
     uint8_t index = 0;

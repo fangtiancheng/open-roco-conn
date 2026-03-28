@@ -3,8 +3,8 @@
 
 class FightResultP : public RFBase{
 public:
-    const std::string_view get_param1() override{return "fb880iPhZJIILu/BdjBLhfu";}
-    const std::string_view get_param2() override{return "FightResultP";}
+    const std::string_view get_param1() const override{return "fb880iPhZJIILu/BdjBLhfu";}
+    const std::string_view get_param2() const override{return "FightResultP";}
     struct SerAttackRes{
 
     };

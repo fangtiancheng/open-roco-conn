@@ -19,7 +19,7 @@ template<HttpRequest::ResponseType response_type>
 boost::asio::awaitable<std::expected<HttpRequest::ResponseDataT<response_type>, HttpRequest::HttpError>>
 HttpRequest::send_request(
     const std::string& endpoint,
-    const std::map<std::string, std::string>& params,
+    const params_t& params,
     bool post_or_get,
     bool enable_timeout,
     int64_t timeout
@@ -242,7 +242,7 @@ void HttpRequest::delete_cache(const std::string& url) {
 template boost::asio::awaitable<HttpRequest::Result<HttpRequest::txt>>
 HttpRequest::send_request<HttpRequest::txt>(
     const std::string& endpoint,
-    const std::map<std::string, std::string>& params,
+    const HttpRequest::params_t& params,
     bool post_or_get,
     bool enable_timeout,
     int64_t timeout
@@ -251,7 +251,7 @@ HttpRequest::send_request<HttpRequest::txt>(
 template boost::asio::awaitable<HttpRequest::Result<HttpRequest::arraybuffer>>
 HttpRequest::send_request<HttpRequest::arraybuffer>(
     const std::string& endpoint,
-    const std::map<std::string, std::string>& params,
+    const HttpRequest::params_t& params,
     bool post_or_get,
     bool enable_timeout,
     int64_t timeout
@@ -260,7 +260,7 @@ HttpRequest::send_request<HttpRequest::arraybuffer>(
 template boost::asio::awaitable<HttpRequest::Result<HttpRequest::json>>
 HttpRequest::send_request<HttpRequest::json>(
     const std::string& endpoint,
-    const std::map<std::string, std::string>& params,
+    const HttpRequest::params_t& params,
     bool post_or_get,
     bool enable_timeout,
     int64_t timeout

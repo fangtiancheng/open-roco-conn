@@ -20,9 +20,70 @@ void WebSocketClient::set_name(const std::string& name) {
     name_ = name;
 }
 
+void WebSocketClient::set_notify_dispatcher(EventDispatcher* dispatcher) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    tcp_connection_.set_notify_dispatcher(dispatcher);
+}
+
+void WebSocketClient::set_callback_center(CallbackCenter* callback_center) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    tcp_connection_.set_callback_center(callback_center);
+}
+
 std::string WebSocketClient::name() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return name_;
+}
+
+std::size_t WebSocketClient::add_tcp_event_listener(const EventKey event_key, EventDispatcher::event_callback callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return tcp_connection_.add_event_listener(event_key, std::move(callback));
+}
+
+bool WebSocketClient::remove_tcp_event_listener(const EventKey event_key, const std::size_t callback_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return tcp_connection_.remove_event_listener(event_key, callback_id);
+}
+
+bool WebSocketClient::mark_login_req_listeners_registered() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (login_req_listeners_registered_) {
+        return false;
+    }
+    login_req_listeners_registered_ = true;
+    return true;
+}
+
+void WebSocketClient::set_login_req_context(
+    const UserData& user_data,
+    const uint16_t room_id,
+    const uint32_t ui_serial_num,
+    GlobalAPI* global_api
+) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    login_req_ctx_.user_data = user_data;
+    login_req_ctx_.room_id = room_id;
+    login_req_ctx_.ui_serial_num = ui_serial_num;
+    login_req_ctx_.global_api = global_api;
+}
+
+WebSocketClient::login_req_context WebSocketClient::get_login_req_context() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return login_req_ctx_;
+}
+
+bool WebSocketClient::try_open_login_req_close_guard() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (login_req_close_guard_opened_) {
+        return false;
+    }
+    login_req_close_guard_opened_ = true;
+    return true;
+}
+
+void WebSocketClient::reset_login_req_close_guard() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    login_req_close_guard_opened_ = false;
 }
 
 boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
@@ -32,11 +93,10 @@ boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
         url_ = std::move(url);
         state_ = state::connecting;
         stop_heartbeat_.store(false);
-        std::cout << "tcp reconnect WebSocketClient\n"
-                  << "connect : " << name_ << "\n"
-                  << "url: " << url_ << std::endl;
+        debug_line(std::format("tcp connect: {}, url: {}", name_, url_));
     }
 
+    tcp_connection_.set_executor(executor);
     tcp_connection_.connect(url_, AngelTcpConnection::PORT);
 
     boost::asio::steady_timer timer(executor);
@@ -45,15 +105,19 @@ boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        state_ = state::connected;
+        state_ = tcp_connection_.is_connected() ? state::connected : state::disconnected;
     }
-    co_return true;
+    co_return tcp_connection_.is_connected();
 }
 
 void WebSocketClient::disconnect() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    state_ = state::disconnected;
-    stop_heartbeat_.store(true);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        state_ = state::disconnected;
+        stop_heartbeat_.store(true);
+    }
+    // close() may synchronously dispatch TCPCONN_CLOSED listeners. Avoid holding
+    // WebSocketClient::mutex_ here to prevent re-entrant deadlock.
     tcp_connection_.close();
 }
 
@@ -81,9 +145,7 @@ boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> pa
     }
     adf.body.reset();
     auto sent = tcp_connection_.send_data(adf);
-
-    std::cout << "cmd=0x" << std::hex << cmd_id << std::dec
-              << " send bytes: " << sent.size() << std::endl;
+    debug_line(std::format("cmd={:#x} send bytes: {}", cmd_id, sent.size()));
     co_return;
 }
 
@@ -105,30 +167,37 @@ boost::asio::awaitable<void> WebSocketClient::send_adf_async(const ADF& adf) {
 
     ADF copy = adf;
     auto sent = tcp_connection_.send_data(copy);
-    std::cout << "cmd=0x" << std::hex << adf.head.cmd_id << std::dec
-              << " send bytes: " << sent.size() << std::endl;
+    debug_line(std::format("cmd={:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
     co_return;
 }
 
-boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {
-    auto executor = co_await boost::asio::this_coro::executor;
-    boost::asio::steady_timer timer(executor);
-    while (true) {
-        ADF adf;
-        if (tcp_connection_.try_pop_adf(adf)) {
-            co_return serialize_adf(adf);
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (state_ != state::connected) {
-                co_return std::vector<uint8_t>{};
-            }
-        }
-
-        timer.expires_after(20ms);
-        co_await timer.async_wait(boost::asio::use_awaitable);
+bool WebSocketClient::send_adf_now(const ADF& adf) {
+    state current_state;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        current_state = state_;
     }
+
+    if (current_state != state::connected) {
+        return false;
+    }
+
+    ADF copy = adf;
+    auto sent = tcp_connection_.send_data(copy);
+    debug_line(std::format("cmd={:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
+    return !sent.empty();
+}
+
+uint32_t WebSocketClient::tcp_id() const {
+    return tcp_connection_.get_id();
+}
+
+bool WebSocketClient::try_pop_adf(ADF& out_adf) {
+    return tcp_connection_.try_pop_adf(out_adf);
+}
+
+bool WebSocketClient::wait_pop_adf(ADF& out_adf) {
+    return tcp_connection_.wait_pop_adf(out_adf);
 }
 
 boost::asio::awaitable<void> WebSocketClient::heartbeat_loop() {
@@ -162,19 +231,4 @@ void WebSocketClient::push_incoming(std::vector<uint8_t> payload) {
 WebSocketClient::state WebSocketClient::connection_state() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return state_;
-}
-
-std::vector<uint8_t> WebSocketClient::serialize_adf(const ADF& adf) {
-    ByteArray packet;
-    packet.allocate();
-    ADF copy = adf;
-    copy.write_external(packet);
-    packet.reset();
-
-    std::vector<uint8_t> bytes;
-    bytes.reserve(packet.length());
-    while (packet.bytes_available() > 0) {
-        bytes.push_back(packet.read_unsigned_byte());
-    }
-    return bytes;
 }

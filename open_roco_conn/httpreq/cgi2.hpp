@@ -6,7 +6,6 @@
 #include <boost/json.hpp>
 #include <expected>
 #include <functional>
-#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,14 +24,15 @@ public:
     };
 
     using result = std::expected<CgiResponse, CgiError>;
-    using mock_handler = std::function<result(const std::string&, const std::map<std::string, std::string>&)>;
+    using params_t = HttpRequest::params_t;
+    using mock_handler = std::function<result(const std::string&, const params_t&)>;
 
-    static void set_mock_handler(mock_handler handler);
-    static boost::asio::awaitable<result> call(
+    void set_mock_handler(mock_handler handler);
+    boost::asio::awaitable<result> call(
         HttpRequest& http_request,
         const std::string& cgi_root,
         const std::string& path_or_url,
-        const std::map<std::string, std::string>& params = {},
+        const params_t& params = {},
         bool use_common_error_alert = true,
         bool is_show_loading_icon = false,
         bool is_encrypt = false
@@ -41,5 +41,5 @@ public:
 private:
     static std::string build_url(const std::string& cgi_root, const std::string& path_or_url);
     static std::optional<boost::json::value> try_parse_json(const std::string& raw_text);
-    static mock_handler mock_handler_;
+    mock_handler mock_handler_{};
 };

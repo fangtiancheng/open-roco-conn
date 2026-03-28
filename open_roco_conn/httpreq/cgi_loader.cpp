@@ -2,6 +2,26 @@
 
 #include <utility>
 
+namespace {
+CGILoader::params_t merge_params(const CGILoader::params_t& base, const CGILoader::params_t& extra) {
+    CGILoader::params_t merged = base;
+    for (const auto& [key, value] : extra) {
+        bool replaced = false;
+        for (auto& [exist_key, exist_value] : merged) {
+            if (exist_key == key) {
+                exist_value = value;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            merged.emplace_back(key, value);
+        }
+    }
+    return merged;
+}
+}
+
 CGILoader::CGILoader(std::string cgi_root, HttpRequest& http_request)
     : http_request_(http_request), cgi_root_(std::move(cgi_root)) {}
 
@@ -14,7 +34,7 @@ const std::string& CGILoader::cgi_root() const {
 }
 
 void CGILoader::set_mock_handler(CGI2::mock_handler handler) {
-    CGI2::set_mock_handler(std::move(handler));
+    cgi2_.set_mock_handler(std::move(handler));
 }
 
 void CGILoader::set_on_complete(event_callback callback) {
@@ -25,23 +45,19 @@ void CGILoader::set_on_error(event_callback callback) {
     on_error_ = std::move(callback);
 }
 
-void CGILoader::set_default_send_obj(std::map<std::string, std::string> defaults) {
+void CGILoader::set_default_send_obj(params_t defaults) {
     default_send_obj_ = std::move(defaults);
 }
 
-std::map<std::string, std::string> CGILoader::get_send_obj(
-    const std::map<std::string, std::string>& extra
+CGILoader::params_t CGILoader::get_send_obj(
+    const params_t& extra
 ) const {
-    auto merged = default_send_obj_;
-    for (const auto& [key, value] : extra) {
-        merged[key] = value;
-    }
-    return merged;
+    return merge_params(default_send_obj_, extra);
 }
 
 boost::asio::awaitable<CGILoader::result> CGILoader::send_data(
     const std::string& send_type,
-    const std::map<std::string, std::string>& send_data
+    const params_t& send_data
 ) {
     co_return co_await send_impl(send_type, send_type, send_data);
 }
@@ -49,7 +65,7 @@ boost::asio::awaitable<CGILoader::result> CGILoader::send_data(
 boost::asio::awaitable<CGILoader::result> CGILoader::send_data1(
     const std::string& path_or_url,
     const std::string& send_type,
-    const std::map<std::string, std::string>& send_data
+    const params_t& send_data
 ) {
     co_return co_await send_impl(path_or_url, send_type, send_data);
 }
@@ -57,7 +73,7 @@ boost::asio::awaitable<CGILoader::result> CGILoader::send_data1(
 boost::asio::awaitable<CGILoader::result> CGILoader::send_impl(
     const std::string& path_or_url,
     const std::string& send_type,
-    const std::map<std::string, std::string>& send_data
+    const params_t& send_data
 ) {
     struct PendingGuard {
         bool& pending;
@@ -72,7 +88,7 @@ boost::asio::awaitable<CGILoader::result> CGILoader::send_impl(
     has_pending_event_ = true;
     PendingGuard pending_guard{has_pending_event_};
     auto request_data = get_send_obj(send_data);
-    auto result = co_await CGI2::call(http_request_, cgi_root_, path_or_url, request_data, true, false, false);
+    auto result = co_await cgi2_.call(http_request_, cgi_root_, path_or_url, request_data, true, false, false);
 
     if (!result.has_value()) {
         CgiEvent event{};

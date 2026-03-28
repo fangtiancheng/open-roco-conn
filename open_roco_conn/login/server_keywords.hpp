@@ -5,8 +5,8 @@
 
 class ServerKeywords: public RFBase {
 public:
-    const std::string_view get_param1() override { return "333bepSMJVBSYvjv+xCqK1m"; }
-    const std::string_view get_param2() override { return "ServerKeywords"; }
+    const std::string_view get_param1() const override { return "333bepSMJVBSYvjv+xCqK1m"; }
+    const std::string_view get_param2() const override { return "ServerKeywords"; }
     static constexpr uint32_t SEND_SPIRIT_BAG = 722458;
     static constexpr uint32_t SEND_SPIRIT_FOLLOW_USER = ADFCmdsType::T_SPIRIT_FOLLOW_USER;
     static constexpr uint32_t RECV_SPIRIT_FOLLOW_USER = ADFCmdsType::T_SPIRIT_FOLLOW_USER;
