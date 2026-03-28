@@ -7,8 +7,8 @@
 
 class CombatSystemDP: public RFBase {
 public:
-    const std::string_view get_param1() override { return "a1e2eVrltlLVKgLxb1U2ocz"; }
-    const std::string_view get_param2() override { return "CombatSystemDP"; }
+    const std::string_view get_param1() const override { return "a1e2eVrltlLVKgLxb1U2ocz"; }
+    const std::string_view get_param2() const override { return "CombatSystemDP"; }
     static int combatServerType; // mirrors the JS static used to pick command set
 
     void send_use_skill(uint8_t skill_type, uint8_t spirit_index, uint32_t skill_id);

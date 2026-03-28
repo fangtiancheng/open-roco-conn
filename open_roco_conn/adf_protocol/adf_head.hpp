@@ -5,8 +5,8 @@
 
 class ADFHead: public RFBase{
 public:
-    const std::string_view get_param1() override{return "26ca636PJFKuLxmT7LSER+D";}
-    const std::string_view get_param2() override{return "ADFHead";}
+    const std::string_view get_param1() const override{return "26ca636PJFKuLxmT7LSER+D";}
+    const std::string_view get_param2() const override{return "ADFHead";}
     static constexpr uint16_t MAGIC = 38183;
 
     uint16_t magic = ADFHead::MAGIC;

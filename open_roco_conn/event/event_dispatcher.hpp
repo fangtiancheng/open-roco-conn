@@ -16,8 +16,8 @@ class EventDispatcher: public RFBase {
     int64_t res_end_timer = 0;
 
 public:
-    const std::string_view get_param1() override { return "48587FFAcVH5YpkyvFs0TMy"; }
-    const std::string_view get_param2() override { return "EventDispatcher"; }
+    const std::string_view get_param1() const override { return "48587FFAcVH5YpkyvFs0TMy"; }
+    const std::string_view get_param2() const override { return "EventDispatcher"; }
     void add_event_listener(const std::string& event_type, const std::function<void()>& callback);
     void remove_event_listener(const std::string& event_type, const std::function<void()>& callback);
     void dispatch_event(const std::string& event_type);

@@ -174,7 +174,7 @@ add_library(websock STATIC
     ${WEBSOCK_DIR}/tcp_transmission.cpp
 )
 target_include_directories(websock PRIVATE ${SRC_DIR} ${WEBSOCK_DIR})
-target_link_libraries(websock PRIVATE base adf_protocol global)
+target_link_libraries(websock PRIVATE base adf_protocol global Boost::headers OpenSSL::SSL)
 
 set(SPIRIT_BOOK_DIR ${SRC_DIR}/spirit_book)
 add_library(spirit_book STATIC

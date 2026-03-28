@@ -5,8 +5,8 @@
 
 class ServerInfo: public RFBase {
 public:
-    const std::string_view get_param1() override { return "651fdyrmYNC94W8HyuqHlRL"; }
-    const std::string_view get_param2() override { return "ServerInfo"; }
+    const std::string_view get_param1() const override { return "651fdyrmYNC94W8HyuqHlRL"; }
+    const std::string_view get_param2() const override { return "ServerInfo"; }
     std::string dir_host = "127.0.0.1";
     uint16_t dir_port = 443;
     std::string room_host = "127.0.0.1";

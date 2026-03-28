@@ -15,11 +15,11 @@ void init_boost_log_once() {
 }
 }
 
-std::ostream& RFBase::debug_stream() {
+std::ostream& RFBase::debug_stream() const {
     return RFBase::debug_stream(get_param2());
 }
 
-void RFBase::debug_line(const std::string& message) {
+void RFBase::debug_line(const std::string& message) const {
     RFBase::debug_line(get_param2(), message);
 }
 

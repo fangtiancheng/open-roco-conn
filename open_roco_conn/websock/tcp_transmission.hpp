@@ -27,8 +27,8 @@ enum class charset_type {
 
 class TcpTransmission : public RFBase {
 public:
-    const std::string_view get_param1() override { return "011d2m2cR5LHLzIDVNk33IY"; }
-    const std::string_view get_param2() override { return "TCPTransmission"; }
+    const std::string_view get_param1() const override { return "011d2m2cR5LHLzIDVNk33IY"; }
+    const std::string_view get_param2() const override { return "TCPTransmission"; }
 
     void append_input(const std::vector<uint8_t>& bytes);
     void append_input(const uint8_t* data, size_t len);

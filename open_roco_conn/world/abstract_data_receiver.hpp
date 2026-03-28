@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "base/rf_base.hpp"
 #include "event/event_dispatcher.hpp"
 #include <cstdint>
@@ -7,8 +7,8 @@
 
 class AbstractDataReceiver: public RFBase {
 public:
-    const std::string_view get_param1() override { return "0f4a8mG9jP2sQ6nR1xY7kLt"; }
-    const std::string_view get_param2() override { return "AbstractDataReceiver"; }
+    const std::string_view get_param1() const override { return "0f4a8mG9jP2sQ6nR1xY7kLt"; }
+    const std::string_view get_param2() const override { return "AbstractDataReceiver"; }
 
     virtual ~AbstractDataReceiver() = default;
 

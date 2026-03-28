@@ -4,8 +4,8 @@
 
 struct P_RoleInfo: public RFBase{
 public:
-    const std::string_view get_param1() override{ return "edb92WMXR1F4rvt6cCPZ7tn";}
-    const std::string_view get_param2() override{ return "P_RoleInfo";}
+    const std::string_view get_param1() const override{ return "edb92WMXR1F4rvt6cCPZ7tn";}
+    const std::string_view get_param2() const override{ return "P_RoleInfo";}
     struct RoleInfo {
         uint32_t uin;
         std::string nick_name;

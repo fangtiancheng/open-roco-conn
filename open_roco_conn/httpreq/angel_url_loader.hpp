@@ -6,7 +6,6 @@
 #include <boost/asio/awaitable.hpp>
 #include <cstdint>
 #include <deque>
-#include <map>
 #include <optional>
 #include <string>
 
@@ -14,7 +13,7 @@ class AngelUrlLoader : public RFBase {
 public:
     struct cgi_request {
         std::string url;
-        std::map<std::string, std::string> params{};
+        HttpRequest::params_t params{};
         bool is_post = false;
         bool enable_timeout = true;
         int64_t timeout_ms = 0;
@@ -25,8 +24,8 @@ public:
     AngelUrlLoader() = default;
     explicit AngelUrlLoader(const ServerInfo& server_info);
 
-    const std::string_view get_param1() override { return "573839TBZRK0aik7j2nDuNp"; }
-    const std::string_view get_param2() override { return "AngelURLLoader"; }
+    const std::string_view get_param1() const override { return "573839TBZRK0aik7j2nDuNp"; }
+    const std::string_view get_param2() const override { return "AngelURLLoader"; }
 
     void set_server_info(const ServerInfo& server_info);
     void set_no_cache(bool enabled);

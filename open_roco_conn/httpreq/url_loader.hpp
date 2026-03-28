@@ -3,7 +3,6 @@
 #include "base/rf_base.hpp"
 #include "httpreq/http_request.hpp"
 #include <boost/asio/awaitable.hpp>
-#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -13,15 +12,15 @@ class UrlLoader : public RFBase {
 public:
     struct request {
         std::string url;
-        std::map<std::string, std::string> params{};
+        HttpRequest::params_t params{};
         bool enable_timeout = true;
         int64_t timeout_ms = 0;
     };
 
     using data_type = std::variant<std::monostate, std::string, std::vector<uint8_t>, HttpRequest::HttpError>;
 
-    const std::string_view get_param1() override { return "13a76gKckxAfoImsk8foVEg"; }
-    const std::string_view get_param2() override { return "URLLoader"; }
+    const std::string_view get_param1() const override { return "13a76gKckxAfoImsk8foVEg"; }
+    const std::string_view get_param2() const override { return "URLLoader"; }
 
     void close();
     bool is_closed() const;

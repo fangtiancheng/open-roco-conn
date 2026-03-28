@@ -1,9 +1,11 @@
 #pragma once
+#include "adf_protocol/adf.hpp"
 #include "base/rf_base.hpp"
 #include "global/user_data.hpp"
 #include "global/web_socket_client.hpp"
 #include "httpreq/http_request.hpp"
 #include "httpreq/cgi2.hpp"
+#include "login/login_data_repply.hpp"
 #include "login/server_info.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <boost/json.hpp>
@@ -14,12 +16,13 @@
 
 class ServerListUI: public RFBase {
 public:
-    const std::string_view get_param1() override { return "023a9xCFH5AjKwDhmZ9eI1D"; }
-    const std::string_view get_param2() override { return "ServerListUI"; }
+    const std::string_view get_param1() const override { return "023a9xCFH5AjKwDhmZ9eI1D"; }
+    const std::string_view get_param2() const override { return "ServerListUI"; }
 
     using result = std::expected<void, std::string>;
     using cgi_result = std::expected<CGI2::CgiResponse, std::string>;
     using int_result = std::expected<int, std::string>;
+    using login_reply_result = std::expected<LoginDataRepply, std::string>;
 
     struct RoomInfo {
         int type = 0;
@@ -44,7 +47,6 @@ public:
     static boost::asio::awaitable<cgi_result> on_request_range_data(
         HttpRequest& http_request,
         int begin,
-        int count,
         uint32_t uin
     );
     static boost::asio::awaitable<cgi_result> on_request_fast_login_data(HttpRequest& http_request, uint32_t uin);
@@ -69,10 +71,11 @@ public:
         const ServerInfo& server_info,
         uint32_t ui_serial_num
     );
+    static login_reply_result handle_login_reply(const ADF& adf);
 
 private:
     static boost::asio::awaitable<cgi_result> request_dir_data(
         HttpRequest& http_request,
-        const std::map<std::string, std::string>& params
+        const HttpRequest::params_t& params
     );
 };

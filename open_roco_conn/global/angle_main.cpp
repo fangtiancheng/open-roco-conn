@@ -12,6 +12,7 @@
 #include <boost/asio/use_awaitable.hpp>
 #include <chrono>
 #include <exception>
+#include <format>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -165,7 +166,8 @@ void AngleMain::finalize() {
 }
 
 boost::asio::awaitable<void> AngleMain::async_bootstrap() {
-    const bool connected = co_await web_socket_client_.connect_async(std::string(AngelTcpConnection::HOST));
+    const std::string ws_url = std::format("wss://zone{}.17roco.qq.com", user_data_.zid);
+    const bool connected = co_await web_socket_client_.connect_async(ws_url);
     if (!connected || stop_async_.load()) {
         on_system_net_closed();
         co_return;
@@ -208,7 +210,12 @@ boost::asio::awaitable<void> AngleMain::recv_loop() {
 
         const uint32_t cmd_type = adf.head.cmd_id;
         if (cmd_type == ADFCmdsType::T_LoginRoom) {
-            on_logined();
+            auto login_result = ServerListUI::handle_login_reply(adf);
+            if (login_result.has_value()) {
+                on_logined();
+            } else if (Define::IS_DEBUG) {
+                debug_line("login reply handle failed: " + login_result.error());
+            }
         }
         if (world_) {
             world_->data_receiver().receive(cmd_type);

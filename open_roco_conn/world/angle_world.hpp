@@ -6,8 +6,8 @@
 
 class AngleWorld: public RFBase {
 public:
-    const std::string_view get_param1() override { return "81781t6CXFFt4uLCtQ3KaNu"; }
-    const std::string_view get_param2() override { return "AngleWorld"; }
+    const std::string_view get_param1() const override { return "81781t6CXFFt4uLCtQ3KaNu"; }
+    const std::string_view get_param2() const override { return "AngleWorld"; }
 
     void initialize(EventDispatcher& dispatcher);
     void finalize();

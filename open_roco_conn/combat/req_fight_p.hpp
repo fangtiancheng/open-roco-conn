@@ -6,8 +6,8 @@
 
 class ReqFightP: public RFBase{
 public:
-    const std::string_view get_param1() override{return "8bf3f42Dh1AbaJju36PKRA4";}
-    const std::string_view get_param2() override{return "ReqFightP";}
+    const std::string_view get_param1() const override{return "8bf3f42Dh1AbaJju36PKRA4";}
+    const std::string_view get_param2() const override{return "ReqFightP";}
     struct FightP{
         uint8_t req_type;
         uint8_t spirit_index;

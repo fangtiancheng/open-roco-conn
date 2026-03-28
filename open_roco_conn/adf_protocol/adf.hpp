@@ -9,8 +9,8 @@
 
 class ADF: public RFBase{
 public:
-    const std::string_view get_param1() override{return "4c4bdiyqNpDYbBHA/inxurd";}
-    const std::string_view get_param2() override{return "ADF";}
+    const std::string_view get_param1() const override{return "4c4bdiyqNpDYbBHA/inxurd";}
+    const std::string_view get_param2() const override{return "ADF";}
     ADFHead head;
     ByteArray body;
     void read_external(ByteArray&);

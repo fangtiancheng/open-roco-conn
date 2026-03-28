@@ -5,8 +5,8 @@
 
 class NetDefine: public RFBase{
 public:
-    const std::string_view get_param1() override{return "3d390sj3CpG1a9S/FMnfg3f";}
-    const std::string_view get_param2() override{return "NetDefine";}
+    const std::string_view get_param1() const override{return "3d390sj3CpG1a9S/FMnfg3f";}
+    const std::string_view get_param2() const override{return "NetDefine";}
     static constexpr inline uint32_t GET_SPIRIT_LIST = 720999;
     static constexpr inline uint32_t GET_DETAIL_INFO = 720914;
     static constexpr inline uint32_t ADD_TO_BAG = 720915;

@@ -10,8 +10,8 @@
 
 class P_BagSpiritData: public RFBase, public AngelDataInputJudge{
 public:
-    const std::string_view get_param1() override{return "dfe40Rs/PxBaYl/F7qDP1lp";}
-    const std::string_view get_param2() override{return "P_BagSpiritData";}
+    const std::string_view get_param1() const override{return "dfe40Rs/PxBaYl/F7qDP1lp";}
+    const std::string_view get_param2() const override{return "P_BagSpiritData";}
     const std::string_view constructor_name() const override {return "P_BagSpiritData";}
     uint32_t id;
     uint8_t level;

@@ -1,4 +1,5 @@
 #include "global/server_list_ui.hpp"
+#include "global/global_api.hpp"
 #include "login/login_data_processor.hpp"
 #include <boost/json.hpp>
 #include <iostream>
@@ -86,7 +87,7 @@ std::string ServerListUI::RoomInfo::to_string() const {
 
 boost::asio::awaitable<ServerListUI::cgi_result> ServerListUI::request_dir_data(
     HttpRequest& http_request,
-    const std::map<std::string, std::string>& params
+    const HttpRequest::params_t& params
 ) {
     auto cgi_result = co_await CGI2::call(
         http_request,
@@ -105,7 +106,7 @@ boost::asio::awaitable<ServerListUI::cgi_result> ServerListUI::on_request_recomm
     HttpRequest& http_request,
     const uint32_t uin
 ) {
-    std::map<std::string, std::string> params{
+    HttpRequest::params_t params{
         {"cmd", "0"},
         {"uin", std::to_string(uin)}
     };
@@ -121,13 +122,12 @@ boost::asio::awaitable<ServerListUI::cgi_result> ServerListUI::on_request_recomm
 boost::asio::awaitable<ServerListUI::cgi_result> ServerListUI::on_request_range_data(
     HttpRequest& http_request,
     const int begin,
-    const int count,
     const uint32_t uin
 ) {
-    std::map<std::string, std::string> params{
+    HttpRequest::params_t params{
         {"cmd", "1"},
         {"begin", std::to_string(begin)},
-        {"count", std::to_string(count)},
+        {"count", "8"},
         {"uin", std::to_string(uin)}
     };
     auto result = co_await request_dir_data(http_request, params);
@@ -143,7 +143,7 @@ boost::asio::awaitable<ServerListUI::cgi_result> ServerListUI::on_request_fast_l
     HttpRequest& http_request,
     const uint32_t uin
 ) {
-    std::map<std::string, std::string> params{
+    HttpRequest::params_t params{
         {"cmd", "2"},
         {"uin", std::to_string(uin)}
     };
@@ -284,4 +284,28 @@ boost::asio::awaitable<ServerListUI::result> ServerListUI::send_login_conn_data(
     co_await web_socket_client.send_adf_async(login_adf);
     RFBase::debug_stream("ServerListUI") << "sendLoginConnData cmd=T_LoginRoom roomID=" << server_info.room_id << std::endl;
     co_return result{};
+}
+
+ServerListUI::login_reply_result ServerListUI::handle_login_reply(const ADF& adf) {
+    ADF copy = adf;
+    LoginDataProcessor processor{};
+    const auto& reply = processor.decode(copy);
+
+    if (reply.return_code.is_error()) {
+        return std::unexpected(
+            "login failed code=" + std::to_string(reply.return_code.code_value())
+            + " message=" + reply.return_code.message_text()
+        );
+    }
+
+    GlobalAPI::set_main_role_info(reply.main_role);
+    GlobalAPI::set_want_to_scene(reply.scene_id, reply.scene_ver);
+
+    RFBase::debug_stream("ServerListUI")
+        << "login reply ok role=" << reply.main_role.to_string()
+        << " scene_id=" << reply.scene_id
+        << " scene_ver=" << reply.scene_ver
+        << std::endl;
+
+    return reply;
 }

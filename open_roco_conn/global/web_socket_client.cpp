@@ -32,11 +32,10 @@ boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
         url_ = std::move(url);
         state_ = state::connecting;
         stop_heartbeat_.store(false);
-        std::cout << "tcp reconnect WebSocketClient\n"
-                  << "connect : " << name_ << "\n"
-                  << "url: " << url_ << std::endl;
+        debug_line(std::format("tcp connect: {}, url: {}", name_, url_));
     }
 
+    tcp_connection_.set_executor(executor);
     tcp_connection_.connect(url_, AngelTcpConnection::PORT);
 
     boost::asio::steady_timer timer(executor);
@@ -45,9 +44,9 @@ boost::asio::awaitable<bool> WebSocketClient::connect_async(std::string url) {
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        state_ = state::connected;
+        state_ = tcp_connection_.is_connected() ? state::connected : state::disconnected;
     }
-    co_return true;
+    co_return tcp_connection_.is_connected();
 }
 
 void WebSocketClient::disconnect() {
@@ -81,9 +80,7 @@ boost::asio::awaitable<void> WebSocketClient::send_async(std::vector<uint8_t> pa
     }
     adf.body.reset();
     auto sent = tcp_connection_.send_data(adf);
-
-    std::cout << "cmd=0x" << std::hex << cmd_id << std::dec
-              << " send bytes: " << sent.size() << std::endl;
+    debug_line(std::format("cmd=0x{:#x} send bytes: {}", cmd_id, sent.size()));
     co_return;
 }
 
@@ -105,14 +102,11 @@ boost::asio::awaitable<void> WebSocketClient::send_adf_async(const ADF& adf) {
 
     ADF copy = adf;
     auto sent = tcp_connection_.send_data(copy);
-    std::cout << "cmd=0x" << std::hex << adf.head.cmd_id << std::dec
-              << " send bytes: " << sent.size() << std::endl;
+    debug_line(std::format("cmd=0x{:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
     co_return;
 }
 
 boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {
-    auto executor = co_await boost::asio::this_coro::executor;
-    boost::asio::steady_timer timer(executor);
     while (true) {
         ADF adf;
         if (tcp_connection_.try_pop_adf(adf)) {
@@ -125,9 +119,11 @@ boost::asio::awaitable<std::vector<uint8_t>> WebSocketClient::recv_async() {
                 co_return std::vector<uint8_t>{};
             }
         }
-
-        timer.expires_after(20ms);
-        co_await timer.async_wait(boost::asio::use_awaitable);
+        if (!tcp_connection_.recv_once()) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            state_ = state::disconnected;
+            co_return std::vector<uint8_t>{};
+        }
     }
 }
 

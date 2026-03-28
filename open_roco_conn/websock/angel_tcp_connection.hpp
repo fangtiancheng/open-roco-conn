@@ -3,11 +3,21 @@
 #include "adf_protocol/adf_head.hpp"
 #include "adf_protocol/byte_buffer.hpp"
 #include "adf_protocol/adf.hpp"
+#include <atomic>
 #include <array>
+#include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl/context.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/core/tcp_stream.hpp>
+#include <boost/beast/ssl/ssl_stream.hpp>
+#include <boost/beast/websocket.hpp>
 #include <cstdint>
 #include <deque>
 #include <expected>
 #include <functional>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -28,9 +38,10 @@ public:
 
     explicit AngelTcpConnection(uint32_t id = 0);
 
-    const std::string_view get_param1() override{ return "AngelTcpConnection"; }
-    const std::string_view get_param2() override{ return "799d0OnyOhDz5KpLVhjOUkT"; }
+    const std::string_view get_param1() const override{ return "799d0OnyOhDz5KpLVhjOUkT"; }
+    const std::string_view get_param2() const override{ return "AngelTcpConnection"; }
 
+    void set_executor(const boost::asio::any_io_executor& executor);
     uint32_t get_id() const;
     void set_policy_port(uint16_t port);
     void connect(std::string host, uint16_t port);
@@ -48,6 +59,7 @@ public:
     using mock_response_provider = std::function<std::optional<ByteArray>(uint32_t)>;
     void set_mock_response_provider(mock_response_provider provider);
     std::vector<uint8_t> send_data(const ADF& adf);
+    bool recv_once();
     bool try_pop_sent_bytes(std::vector<uint8_t>& out_bytes);
     bool try_pop_adf(ADF& out_adf);
 
@@ -59,9 +71,31 @@ public:
     uint16_t c_port = PORT;
 
 private:
+    struct parsed_endpoint {
+        std::string scheme;
+        std::string host;
+        uint16_t port = 0;
+        std::string target;
+    };
+
+    static std::optional<parsed_endpoint> parse_endpoint(const std::string& url, uint16_t fallback_port);
+
+    using tcp = boost::asio::ip::tcp;
+    using plain_ws = boost::beast::websocket::stream<boost::beast::tcp_stream>;
+    using tls_ws = boost::beast::websocket::stream<boost::beast::ssl_stream<boost::beast::tcp_stream>>;
+
     uint32_t id_ = 0;
     std::string name_ = "AngelTcpConnection";
     connection_state state_ = connection_state::closed;
+    boost::asio::any_io_executor executor_{};
+    mutable std::mutex state_mutex_{};
+    mutable std::mutex ws_mutex_{};
+    mutable std::mutex queue_mutex_{};
+    std::mutex parse_mutex_{};
+    boost::asio::ssl::context ssl_ctx_{boost::asio::ssl::context::tlsv12_client};
+    std::unique_ptr<plain_ws> plain_ws_{};
+    std::unique_ptr<tls_ws> tls_ws_{};
+
     ByteBuffer in_byte_buff{};
     std::optional<ADF> empty_adf_{};
     std::deque<std::vector<uint8_t>> sent_bytes_queue_{};

@@ -11,8 +11,8 @@
 
 class WebSocketClient: public RFBase {
 public:
-    const std::string_view get_param1() override { return "fd464cY86lGjqqwe3VhpPwX"; }
-    const std::string_view get_param2() override { return "WebSocketClient"; }
+    const std::string_view get_param1() const override { return "fd464cY86lGjqqwe3VhpPwX"; }
+    const std::string_view get_param2() const override { return "WebSocketClient"; }
 
     enum class state : uint8_t {
         disconnected = 0,

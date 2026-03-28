@@ -6,8 +6,8 @@ using point_t = std::pair<int16_t, int16_t>;
 
 class Define: public RFBase{
 public:
-    const std::string_view get_param1() override{return "eb281h8zFBPKb2M3ZNLIU0k";}
-    const std::string_view get_param2() override{return "Define";}
+    const std::string_view get_param1() const override{return "eb281h8zFBPKb2M3ZNLIU0k";}
+    const std::string_view get_param2() const override{return "Define";}
 
     inline static constexpr bool IS_DEBUG = true;
     inline static constexpr std::string_view ANGEL_VERSION = "0.1";

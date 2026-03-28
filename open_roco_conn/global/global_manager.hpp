@@ -10,8 +10,8 @@ class ReBirthDataProxy;
 
 class GlobalManager: public RFBase {
 public:
-    const std::string_view get_param1() override { return "d56d3OZXxBDBJxFb8CdNSqC"; }
-    const std::string_view get_param2() override { return "GlobalManager"; }
+    const std::string_view get_param1() const override { return "d56d3OZXxBDBJxFb8CdNSqC"; }
+    const std::string_view get_param2() const override { return "GlobalManager"; }
     ~GlobalManager() override;
 
     using hook = std::function<void()>;

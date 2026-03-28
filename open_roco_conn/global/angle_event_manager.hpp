@@ -11,8 +11,8 @@
 
 class AngleEventManager: public RFBase {
 public:
-    const std::string_view get_param1() override { return "bc3572iYeZKa6Z2idrF6ieF"; }
-    const std::string_view get_param2() override { return "AngleEventManager"; }
+    const std::string_view get_param1() const override { return "bc3572iYeZKa6Z2idrF6ieF"; }
+    const std::string_view get_param2() const override { return "AngleEventManager"; }
 
     using cmd_listener = std::function<void(void*)>;
     using frame_listener = std::function<void()>;
