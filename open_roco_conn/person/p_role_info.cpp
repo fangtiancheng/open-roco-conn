@@ -1,14 +1,16 @@
 #include "p_role_info.hpp"
 
+void P_RoleInfo::write_external(ByteArray& adf) {
+    (void) adf;
+}
 
 void P_RoleInfo::read_external(ByteArray& adf){
-    auto& ri = role_info;
-    ri.uin = adf.read_unsigned_int();
-    ri.nick_name = adf.read_chars(Define::L_NICKNAME);
-    ri.level = adf.read_unsigned_short();
-    ri.avatar_ver = adf.read_unsigned_short();
-    ri.position = adf.read_point();
-    ri.direction = adf.read_signed_short();
-    ri.has_pet = adf.read_signed_byte();
+    uin = adf.read_unsigned_int();
+    nick_name = adf.read_chars(Define::L_NICKNAME);
+    level = adf.read_unsigned_short();
+    avatar_ver = adf.read_unsigned_short();
+    position = adf.read_point();
+    direction = adf.read_signed_short();
+    has_pet = adf.read_signed_byte();
 }
 

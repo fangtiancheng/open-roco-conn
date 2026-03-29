@@ -1,6 +1,8 @@
 #include "adf_head.hpp"
+#include <format>
 
 void ADFHead::read_external(ByteArray& e) {
+    // magic = e.read_unsigned_short();// why js not this
     version = e.read_unsigned_short();
     cmd_id = e.read_unsigned_int();
     uin = e.read_unsigned_int();
@@ -10,6 +12,7 @@ void ADFHead::read_external(ByteArray& e) {
 }
 
 void ADFHead::write_external(ByteArray &e) const {
+    e.write_unsigned_short(magic);
     e.write_unsigned_short(version);
     e.write_unsigned_int(cmd_id);
     e.write_unsigned_int(uin);
@@ -26,4 +29,9 @@ int ADFHead::can_read(ByteArray &e) {
         return MagicError;
     }
     return HeadReady;
+}
+
+std::string ADFHead::to_string() const {
+    return std::format("magic={} version={} cmdID={:#x} uin={} uiSerialNum={} checkSum={} length={}",
+            magic, version, cmd_id, uin, ui_serial_num, check_sum, length);
 }

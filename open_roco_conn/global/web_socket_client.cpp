@@ -1,11 +1,13 @@
 #include "web_socket_client.hpp"
 #include "adf_protocol/adf_cmds_type.hpp"
+#include "websock/linger_tcp_connection.hpp"
 #include <boost/asio/system_executor.hpp>
 #include <chrono>
 #include <format>
 #include <iostream>
 
-WebSocketClient::WebSocketClient() {
+WebSocketClient::WebSocketClient(const uint32_t tcp_id) {
+    tcp_connection_ = std::make_unique<LingerTcpConnection>(tcp_id);
 }
 
 WebSocketClient::~WebSocketClient() {
@@ -19,12 +21,16 @@ void WebSocketClient::set_name(const std::string& name) {
 
 void WebSocketClient::set_notify_dispatcher(EventDispatcher* dispatcher) {
     std::lock_guard<std::mutex> lock(mutex_);
-    tcp_connection_.set_notify_dispatcher(dispatcher);
+    if (tcp_connection_ != nullptr) {
+        tcp_connection_->set_notify_dispatcher(dispatcher);
+    }
 }
 
 void WebSocketClient::set_callback_center(CallbackCenter* callback_center) {
     std::lock_guard<std::mutex> lock(mutex_);
-    tcp_connection_.set_callback_center(callback_center);
+    if (tcp_connection_ != nullptr) {
+        tcp_connection_->set_callback_center(callback_center);
+    }
 }
 
 std::string WebSocketClient::name() const {
@@ -34,7 +40,10 @@ std::string WebSocketClient::name() const {
 
 bool WebSocketClient::remove_tcp_event_listener(const EventKey event_key, const std::size_t callback_id) {
     std::lock_guard<std::mutex> lock(mutex_);
-    return tcp_connection_.remove_event_listener(event_key, callback_id);
+    if (tcp_connection_ == nullptr) {
+        return false;
+    }
+    return tcp_connection_->remove_event_listener(event_key, callback_id);
 }
 
 bool WebSocketClient::connect(std::string url) {
@@ -47,14 +56,18 @@ bool WebSocketClient::connect(std::string url) {
         debug_line(std::format("tcp connect: {}, url: {}", name_, url_));
     }
 
-    tcp_connection_.set_executor(boost::asio::system_executor{});
-    tcp_connection_.connect(url_, AngelTcpConnection::PORT);
+    if (tcp_connection_ == nullptr) {
+        return false;
+    }
+
+    tcp_connection_->set_executor(boost::asio::system_executor{});
+    tcp_connection_->connect(url_, AngelTcpConnection::PORT);
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        state_ = tcp_connection_.is_connected() ? state::connected : state::disconnected;
+        state_ = tcp_connection_->is_connected() ? state::connected : state::disconnected;
     }
-    return tcp_connection_.is_connected();
+    return tcp_connection_->is_connected();
 }
 
 void WebSocketClient::disconnect() {
@@ -65,7 +78,9 @@ void WebSocketClient::disconnect() {
     }
     // close() may synchronously dispatch TCPCONN_CLOSED listeners. Avoid holding
     // WebSocketClient::mutex_ here to prevent re-entrant deadlock.
-    tcp_connection_.close();
+    if (tcp_connection_ != nullptr) {
+        tcp_connection_->close();
+    }
 }
 
 bool WebSocketClient::send(std::vector<uint8_t> payload, const uint32_t cmd_id) {
@@ -86,7 +101,10 @@ bool WebSocketClient::send(std::vector<uint8_t> payload, const uint32_t cmd_id) 
         adf.body.write_unsigned_byte(byte);
     }
     adf.body.reset();
-    auto sent = tcp_connection_.send_data(adf);
+    if (tcp_connection_ == nullptr) {
+        return false;
+    }
+    auto sent = tcp_connection_->send_data(adf);
     debug_line(std::format("cmd={:#x} send bytes: {}", cmd_id, sent.size()));
     return !sent.empty();
 }
@@ -103,21 +121,37 @@ bool WebSocketClient::send_adf(const ADF& adf) {
     }
 
     ADF copy = adf;
-    auto sent = tcp_connection_.send_data(copy);
+    if (tcp_connection_ == nullptr) {
+        return false;
+    }
+    auto sent = tcp_connection_->send_data(copy);
     debug_line(std::format("cmd={:#x} send bytes: {}", adf.head.cmd_id, sent.size()));
     return !sent.empty();
 }
 
 bool WebSocketClient::recv_once() {
-    return tcp_connection_.recv_once();
+    if (tcp_connection_ == nullptr) {
+        return false;
+    }
+    return tcp_connection_->recv_once();
 }
 
 uint32_t WebSocketClient::tcp_id() const {
-    return tcp_connection_.get_id();
+    if (tcp_connection_ == nullptr) {
+        return 0;
+    }
+    return tcp_connection_->get_id();
+}
+
+AngelTcpConnection* WebSocketClient::tcp_proxy() {
+    return tcp_connection_.get();
 }
 
 bool WebSocketClient::try_pop_adf(ADF& out_adf) {
-    return tcp_connection_.try_pop_adf(out_adf);
+    if (tcp_connection_ == nullptr) {
+        return false;
+    }
+    return tcp_connection_->try_pop_adf(out_adf);
 }
 
 void WebSocketClient::heartbeat_tick() {
@@ -141,7 +175,10 @@ void WebSocketClient::push_incoming(std::vector<uint8_t> payload) {
     }
     packet.reset();
 
-    auto ret = tcp_connection_.on_message(packet, false);
+    if (tcp_connection_ == nullptr) {
+        return;
+    }
+    auto ret = tcp_connection_->on_message(packet, false);
     if (!ret.has_value()) {
         std::cerr << "[WebSocketClient] push_incoming parse failed: " << ret.error() << std::endl;
     }

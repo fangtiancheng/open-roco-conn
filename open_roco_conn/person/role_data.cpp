@@ -1,16 +1,20 @@
 #include "role_data.hpp"
 
+void RoleData::update(const RoleData& other) {
+    *this = other;
+}
+
 std::string RoleData::to_string() const {
-    return "[RoleData] id = " + std::to_string(id) +
-           ", uin: " + std::to_string(uin) +
-           ", nickName: " + nick_name + "]";
+    return "[RoleData: id = " + std::to_string(id) +
+           ", uin = " + std::to_string(uin) +
+           ", nickName = " + nick_name + "]";
 }
 
 void RoleData::read_role_data(ByteArray& e) {
     auto& n = *this;
     n.avatar_type = n.uin = n.id = e.read_unsigned_int();
     n.role_type = (n.uin > 10000) ? RoleData::MEMBER : RoleData::GUEST;
-    n.nick_name = e.read_chars(Define::L_NICKNAME);
+    n.nick_name = e.read_fixed_chars(Define::L_NICKNAME);
     n.level = e.read_unsigned_short();
     n.skin_type = e.read_unsigned_int();
     n.avatar_version = e.read_unsigned_short();

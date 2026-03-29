@@ -4,7 +4,6 @@
 #include <format>
 #include <limits>
 #include <utility>
-#include <vector>
 
 void AngelNetSystem::initialize(EventDispatcher& dispatcher, WebSocketClient& web_socket_client) {
     finalize();
@@ -35,6 +34,7 @@ void AngelNetSystem::initialize(EventDispatcher& dispatcher, WebSocketClient& we
 
 void AngelNetSystem::finalize() {
     adf_receivers_.dispose();
+    processors_.clear();
     if (web_socket_client_ != nullptr) {
         if (tcp_connected_listener_id_ != 0) {
             web_socket_client_->remove_tcp_event_listener(EventKey::tcp_conn_connected, tcp_connected_listener_id_);
@@ -100,6 +100,10 @@ void AngelNetSystem::set_on_before_dispatch_adf(adf_callback callback) {
     on_before_dispatch_adf_ = std::move(callback);
 }
 
+void AngelNetSystem::set_user_uin(const uint32_t user_uin) {
+    user_uin_ = user_uin;
+}
+
 std::string AngelNetSystem::current_state() const {
     return current_state_;
 }
@@ -147,7 +151,7 @@ uint32_t AngelNetSystem::try_send_data(const uint32_t data_type,
                                        const bool has_ser_num,
                                        const uint32_t tcp_id) {
     auto* tcp_proxy = get_tcp_proxy(tcp_id);
-    if (tcp_proxy == nullptr) {
+    if (tcp_proxy == nullptr || !tcp_proxy->is_connected()) {
         return 0;
     }
 
@@ -157,32 +161,36 @@ uint32_t AngelNetSystem::try_send_data(const uint32_t data_type,
         serial_num = next_serial_num_;
     }
 
-    data.reset();
-    std::vector<uint8_t> payload{};
-    payload.reserve(data.length());
-    while (data.bytes_available() > 0) {
-        payload.push_back(data.read_unsigned_byte());
-    }
-
-    auto adf_opt = processors_.encode(payload, data_type, serial_num);
+    auto adf_opt = processors_.encode(std::move(data), data_type, serial_num);
     if (!adf_opt.has_value()) {
         return 0;
     }
 
     ADF adf = std::move(adf_opt.value());
-    if (!tcp_proxy->send_adf(adf)) {
+    adf.head.cmd_id = data_type;
+    adf.head.ui_serial_num = has_ser_num ? serial_num : 0;
+    if (adf.head.uin == 0) {
+        adf.head.uin = user_uin_;
+    }
+    adf.head.length = static_cast<uint16_t>(adf.body.length());
+    auto sent = tcp_proxy->send_data(adf);
+    if (sent.empty()) {
         return 0;
     }
     return has_ser_num ? serial_num : 1;
 }
 
-WebSocketClient* AngelNetSystem::get_tcp_proxy(const uint32_t tcp_id) {
+AngelTcpConnection* AngelNetSystem::get_tcp_proxy(const uint32_t tcp_id) {
     if (web_socket_client_ == nullptr) {
         return nullptr;
     }
     constexpr uint32_t default_tcp_id = std::numeric_limits<uint32_t>::max();
-    if (tcp_id == default_tcp_id || web_socket_client_->tcp_id() == tcp_id) {
-        return web_socket_client_;
+    auto* proxy = web_socket_client_->tcp_proxy();
+    if (proxy == nullptr) {
+        return nullptr;
+    }
+    if (tcp_id == default_tcp_id || proxy->get_id() == tcp_id) {
+        return proxy;
     }
     return nullptr;
 }

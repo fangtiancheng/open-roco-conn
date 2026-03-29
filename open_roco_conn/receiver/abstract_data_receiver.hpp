@@ -5,6 +5,7 @@
 #include "event/event_dispatcher.hpp"
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -24,8 +25,13 @@ public:
 
     using send_request_handler_t = std::function<void(uint32_t data_type, ByteArray data, bool has_ser_num, uint32_t tcp_id, AbstractDataReceiver* sender)>;
 
-    void send_data_to_server(uint32_t data_type, ByteArray data = ByteArray{}, uint32_t tcp_id = 1);
-    void send_data_with_ser_num(uint32_t data_type, ByteArray data = ByteArray{}, uint32_t ser_num = 0, uint32_t tcp_id = 1);
+    void send_data_to_server(uint32_t data_type,
+                             ByteArray data = ByteArray{},
+                             uint32_t tcp_id = std::numeric_limits<uint32_t>::max());
+    void send_data_with_ser_num(uint32_t data_type,
+                                ByteArray data = ByteArray{},
+                                uint32_t ser_num = 0,
+                                uint32_t tcp_id = std::numeric_limits<uint32_t>::max());
     void set_send_request_handler(send_request_handler_t handler);
 
 protected:

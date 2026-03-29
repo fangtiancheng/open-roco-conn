@@ -64,11 +64,11 @@ void AngelTcpConnection::set_callback_center(CallbackCenter* callback_center) {
 }
 
 void AngelTcpConnection::register_protobuf_cmd(const uint32_t cmd_id) {
-    protobuf_cmd_ids_.insert(cmd_id);
+    free_pb_request_proxy_.add_cmd(cmd_id);
 }
 
 bool AngelTcpConnection::is_protobuf_cmd(const uint32_t cmd_id) const {
-    return protobuf_cmd_ids_.contains(cmd_id);
+    return free_pb_request_proxy_.is_proto_buf_id(cmd_id);
 }
 
 std::optional<AngelTcpConnection::parsed_endpoint> AngelTcpConnection::parse_endpoint(
@@ -330,7 +330,7 @@ void AngelTcpConnection::dispatch_notify_event(const EventKey event_key,
     payload->adf = std::move(adf);
     payload->sender = this;
     payload->is_send = is_send;
-    payload->is_protobuf = payload->head.has_value() && is_protobuf_cmd(payload->head->cmd_id);
+    payload->is_protobuf = payload->head.has_value() && free_pb_request_proxy_.is_proto_buf_id(payload->head->cmd_id);
 
     if (callback_center_ != nullptr) {
         if (const auto callback_event_id = to_callback_event_id(event_key); callback_event_id.has_value()) {
@@ -368,14 +368,14 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
 
     if (Define::IS_DEBUG) {
         debug_line(std::format("name={}", name_));
-        debug_line(std::format("send cmd={:#x} len={}", adf.head.cmd_id, bytes.size()));
-        debug_line(std::format("sendArrayBuffer : {}", bytes_to_hex_string(bytes, false, " ")));
+        debug_line(std::format("send ADFHead: {}", adf.head.to_string()));
+        debug_line(std::format("sendArrayBuffer: {}", bytes_to_hex_string(bytes, false, " ")));
     }
 
     sent_bytes_queue_.push_back(bytes);
 
     const auto adf_copy = std::make_shared<ADF>(adf);
-    if (is_protobuf_cmd(adf.head.cmd_id)) {
+    if (free_pb_request_proxy_.is_proto_buf_id(adf.head.cmd_id)) {
         dispatch_notify_event(EventKey::notify_on_send_protobuf_raw_data, bytes, adf.head, adf_copy, true);
     } else {
         dispatch_notify_event(EventKey::notify_on_send_socket_raw_data, bytes, adf.head, adf_copy, true);
@@ -536,7 +536,7 @@ bool AngelTcpConnection::try_read_adf_body(ByteArray& n) {
 
     auto parsed_adf = std::make_shared<ADF>(*empty_adf_);
     const auto body_bytes = byte_array_to_vector(parsed_adf->body);
-    if (is_protobuf_cmd(parsed_adf->head.cmd_id)) {
+    if (free_pb_request_proxy_.is_proto_buf_id(parsed_adf->head.cmd_id)) {
         dispatch_notify_event(EventKey::notify_on_get_protobuf_raw_data, body_bytes, parsed_adf->head, parsed_adf, false);
     } else {
         dispatch_notify_event(EventKey::notify_on_get_socket_raw_data, body_bytes, parsed_adf->head, parsed_adf, false);
