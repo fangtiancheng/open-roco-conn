@@ -56,9 +56,14 @@ GameLaunch::user_data_result GameLaunch::parse_user_data(const std::map<std::str
     if (p_pskey == cookie_map.end()) {
         return std::unexpected("pskey not in params.keys");
     }
+    auto p_session_key = cookie_map.find("angel_key");
+    if (p_session_key == cookie_map.end()) {
+        return std::unexpected("angel_key not in params.keys");
+    }
     data.uin = uin_result.value();
     data.skey = p_pskey->second;
     data.pskey = p_pskey->second;
+    data.set_session_key(p_session_key->second);
     return data;
 }
 

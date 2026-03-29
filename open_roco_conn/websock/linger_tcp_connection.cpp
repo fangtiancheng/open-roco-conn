@@ -10,7 +10,10 @@
 LingerTcpConnection::LingerTcpConnection(const uint32_t id)
     : AngelTcpConnection(id) {
     hello_timer_ = std::make_unique<Timer>(std::chrono::milliseconds(12000));
-    hello_timer_listener_id_ = hello_timer_->add_event_listener(EventKey::timer, [this]() { on_hello_time(); });
+    hello_timer_listener_id_ = hello_timer_->add_event_listener<void>(EventKey::timer, [this]() -> EventDispatcher::dispatch_result_t {
+        on_hello_time();
+        return {};
+    });
 }
 
 LingerTcpConnection::~LingerTcpConnection() {

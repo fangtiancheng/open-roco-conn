@@ -3,7 +3,6 @@
 #include "adf_protocol/adf_cmds_type.hpp"
 #include "base/define.hpp"
 #include "event/notify_def.hpp"
-#include "event/tcp_conn_event.hpp"
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/tcp_stream.hpp>
@@ -65,12 +64,10 @@ void AngelTcpConnection::set_callback_center(CallbackCenter* callback_center) {
 }
 
 void AngelTcpConnection::register_protobuf_cmd(const uint32_t cmd_id) {
-    std::lock_guard<std::mutex> lock(protobuf_cmd_mutex_);
     protobuf_cmd_ids_.insert(cmd_id);
 }
 
 bool AngelTcpConnection::is_protobuf_cmd(const uint32_t cmd_id) const {
-    std::lock_guard<std::mutex> lock(protobuf_cmd_mutex_);
     return protobuf_cmd_ids_.contains(cmd_id);
 }
 
@@ -142,14 +139,9 @@ void AngelTcpConnection::reconnect() {
 
     const auto& endpoint = parsed.value();
     try {
-        std::lock_guard<std::mutex> ws_lock(ws_mutex_);
         plain_ws_.reset();
         tls_ws_.reset();
-
-        {
-            std::lock_guard<std::mutex> state_lock(state_mutex_);
-            state_ = connection_state::connecting;
-        }
+        state_ = connection_state::connecting;
 
         tcp::resolver resolver(executor_);
         auto resolved = resolver.resolve(endpoint.host, std::to_string(endpoint.port));
@@ -159,6 +151,8 @@ void AngelTcpConnection::reconnect() {
             beast::get_lowest_layer(*plain_ws_).connect(resolved);
             plain_ws_->binary(true);
             plain_ws_->handshake(endpoint.host, endpoint.target);
+            beast::error_code nonblock_ec;
+            beast::get_lowest_layer(*plain_ws_).socket().non_blocking(true, nonblock_ec);
         } else {
             tls_ws_ = std::make_unique<tls_ws>(executor_, ssl_ctx_);
             if (!SSL_set_tlsext_host_name(tls_ws_->next_layer().native_handle(), endpoint.host.c_str())) {
@@ -173,10 +167,12 @@ void AngelTcpConnection::reconnect() {
             tls_ws_->next_layer().handshake(ssl::stream_base::client);
             tls_ws_->binary(true);
             tls_ws_->handshake(endpoint.host, endpoint.target);
+            beast::error_code nonblock_ec;
+            beast::get_lowest_layer(*tls_ws_).socket().non_blocking(true, nonblock_ec);
         }
 
-        on_open();
         debug_line(std::format("reconnect ok: {}://{}:{}{}", endpoint.scheme, endpoint.host, endpoint.port, endpoint.target));
+        on_open();
     } catch (const std::exception& ex) {
         on_error();
         debug_line(std::string("reconnect exception: ") + ex.what());
@@ -184,70 +180,106 @@ void AngelTcpConnection::reconnect() {
 }
 
 void AngelTcpConnection::close() {
-    stop_read_loop_.store(true);
     beast::error_code ec;
-    {
-        std::lock_guard<std::mutex> ws_lock(ws_mutex_);
-        // Keep stream objects alive to avoid races with in-flight recv/send.
-        // reconnect() will recreate/reset them under the same mutex.
-        if (tls_ws_) {
-            tls_ws_->close(beast::websocket::close_code::normal, ec);
-        }
-        if (plain_ws_) {
-            plain_ws_->close(beast::websocket::close_code::normal, ec);
-        }
+    if (tls_ws_) {
+        tls_ws_->close(beast::websocket::close_code::normal, ec);
     }
-    stop_read_loop(true);
+    if (plain_ws_) {
+        plain_ws_->close(beast::websocket::close_code::normal, ec);
+    }
     on_close();
 }
 
 bool AngelTcpConnection::is_connected() const {
-    std::lock_guard<std::mutex> lock(state_mutex_);
     return state_ == connection_state::open;
 }
 
 void AngelTcpConnection::on_open() {
-    {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        state_ = connection_state::open;
-    }
+    state_ = connection_state::open;
     if (Define::IS_DEBUG) {
         debug_line(std::format("on_open name={}, id={}", name_, id_));
     }
-    start_read_loop();
-    dispatch_tcp_event(EventKey::tcp_conn_connected);
+    auto dispatch_result = dispatch_event<void>(EventKey::tcp_conn_connected);
+    if (!dispatch_result.has_value()) {
+        debug_line(std::format("dispatch tcp_conn_connected failed: {}", dispatch_result.error()));
+    }
 }
 
 void AngelTcpConnection::on_error() {
-    {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        state_ = connection_state::error;
+    state_ = connection_state::error;
+    auto dispatch_result = dispatch_event<void>(EventKey::tcp_conn_error);
+    if (!dispatch_result.has_value()) {
+        debug_line(std::format("dispatch tcp_conn_error failed: {}", dispatch_result.error()));
     }
-    dispatch_tcp_event(EventKey::tcp_conn_error, {}, "[AngelTcpConnection] [error]");
 }
 
 void AngelTcpConnection::on_close() {
     bool changed = false;
-    {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        if (state_ != connection_state::closed) {
-            changed = true;
-        }
-        state_ = connection_state::closed;
+    if (state_ != connection_state::closed) {
+        changed = true;
     }
+    state_ = connection_state::closed;
     if (!changed) {
         return;
     }
-    stop_read_loop_.store(true);
-    adf_cv_.notify_all();
     if (Define::IS_DEBUG) {
         debug_line(std::format("on_close name={}, id={}", name_, id_));
     }
-    dispatch_tcp_event(EventKey::tcp_conn_closed);
+    auto dispatch_result = dispatch_event<void>(EventKey::tcp_conn_closed);
+    if (!dispatch_result.has_value()) {
+        debug_line(std::format("dispatch tcp_conn_closed failed: {}", dispatch_result.error()));
+    }
 }
 
 void AngelTcpConnection::set_mock_response_provider(mock_response_provider provider) {
     mock_response_provider_ = std::move(provider);
+}
+
+bool AngelTcpConnection::recv_once() {
+    if (!is_connected()) {
+        return false;
+    }
+
+    beast::flat_buffer recv_buffer;
+    beast::error_code ec;
+
+    if (tls_ws_) {
+        tls_ws_->read(recv_buffer, ec);
+    } else if (plain_ws_) {
+        plain_ws_->read(recv_buffer, ec);
+    } else {
+        return false;
+    }
+
+    if (ec == boost::asio::error::would_block || ec == boost::asio::error::try_again) {
+        return true;
+    }
+    if (ec == boost::beast::websocket::error::closed) {
+        on_close();
+        return false;
+    }
+    if (ec) {
+        debug_line(std::format("recv_once read error: {}", ec.message()));
+        on_close();
+        return false;
+    }
+
+    const auto data = recv_buffer.cdata();
+    std::vector<uint8_t> bytes(data.size());
+    boost::asio::buffer_copy(boost::asio::buffer(bytes), data);
+
+    ByteArray packet;
+    packet.allocate(bytes.size());
+    for (const auto byte : bytes) {
+        packet.write_unsigned_byte(byte);
+    }
+    packet.reset();
+
+    auto result = on_message(packet, false);
+    if (!result.has_value()) {
+        debug_line("recv_once parse failed: " + result.error());
+    }
+    return true;
 }
 
 void AngelTcpConnection::send_initial_data() {
@@ -265,42 +297,29 @@ std::vector<uint8_t> AngelTcpConnection::byte_array_to_vector(const ByteArray& b
     return bytes;
 }
 
-std::optional<uint32_t> AngelTcpConnection::to_callback_event_id(const std::string_view event_type) {
-    if (event_type == NotifyDef::ANGEL_NET_ON_GET_A_SOCKET_RAW_DATA) {
+std::optional<uint32_t> AngelTcpConnection::to_callback_event_id(const EventKey event_key) {
+    if (event_key == EventKey::notify_on_get_socket_raw_data) {
         return NotifyDef::CB_ANGEL_NET_ON_GET_A_SOCKET_RAW_DATA;
     }
-    if (event_type == NotifyDef::ANGEL_NET_ON_SEND_A_SOCKET_RAW_DATA) {
+    if (event_key == EventKey::notify_on_send_socket_raw_data) {
         return NotifyDef::CB_ANGEL_NET_ON_SEND_A_SOCKET_RAW_DATA;
     }
-    if (event_type == NotifyDef::ANGEL_NET_ON_GET_A_PROTOBUF_RAW_DATA) {
+    if (event_key == EventKey::notify_on_get_protobuf_raw_data) {
         return NotifyDef::CB_ANGEL_NET_ON_GET_A_PROTOBUF_RAW_DATA;
     }
-    if (event_type == NotifyDef::ANGEL_NET_ON_SEND_A_PROTOBUF_RAW_DATA) {
+    if (event_key == EventKey::notify_on_send_protobuf_raw_data) {
         return NotifyDef::CB_ANGEL_NET_ON_SEND_A_PROTOBUF_RAW_DATA;
     }
-    if (event_type == NotifyDef::ANGEL_NET_ON_GET_A_RAW_DATA) {
+    if (event_key == EventKey::notify_on_get_raw_data) {
         return NotifyDef::CB_ANGEL_NET_ON_GET_A_RAW_DATA;
     }
-    if (event_type == NotifyDef::ANGEL_NET_ON_SEND_A_RAW_DATA) {
+    if (event_key == EventKey::notify_on_send_raw_data) {
         return NotifyDef::CB_ANGEL_NET_ON_SEND_A_RAW_DATA;
     }
     return std::nullopt;
 }
 
-void AngelTcpConnection::dispatch_tcp_event(const EventKey event_key,
-                                            std::shared_ptr<ADF> adf,
-                                            std::string message,
-                                            const uint32_t data_type) {
-    TCPConnEvent event(std::string(to_string(event_key)), id_);
-    if (adf) {
-        event.set_adf(std::move(adf));
-    }
-    event.message = std::move(message);
-    event.data_type = data_type;
-    dispatch_event(event);
-}
-
-void AngelTcpConnection::dispatch_notify_event(std::string_view event_type,
+void AngelTcpConnection::dispatch_notify_event(const EventKey event_key,
                                                std::vector<uint8_t> raw_bytes,
                                                std::optional<ADFHead> head,
                                                std::shared_ptr<ADF> adf,
@@ -314,14 +333,16 @@ void AngelTcpConnection::dispatch_notify_event(std::string_view event_type,
     payload->is_protobuf = payload->head.has_value() && is_protobuf_cmd(payload->head->cmd_id);
 
     if (callback_center_ != nullptr) {
-        if (const auto callback_event_id = to_callback_event_id(event_type); callback_event_id.has_value()) {
+        if (const auto callback_event_id = to_callback_event_id(event_key); callback_event_id.has_value()) {
             callback_center_->enqueue(callback_event_id.value(), payload, this);
         }
     }
 
     if (notify_dispatcher_ != nullptr) {
-        NotifyDef event(std::string(event_type), payload);
-        notify_dispatcher_->dispatch_event(event);
+        auto dispatch_result = notify_dispatcher_->dispatch_event<void>(event_key);
+        if (!dispatch_result.has_value()) {
+            debug_line(std::format("dispatch notify event failed: {}", dispatch_result.error()));
+        }
     }
 }
 
@@ -351,18 +372,15 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
         debug_line(std::format("sendArrayBuffer : {}", bytes_to_hex_string(bytes, false, " ")));
     }
 
-    {
-        std::lock_guard<std::mutex> queue_lock(queue_mutex_);
-        sent_bytes_queue_.push_back(bytes);
-    }
+    sent_bytes_queue_.push_back(bytes);
 
     const auto adf_copy = std::make_shared<ADF>(adf);
     if (is_protobuf_cmd(adf.head.cmd_id)) {
-        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_SEND_A_PROTOBUF_RAW_DATA, bytes, adf.head, adf_copy, true);
+        dispatch_notify_event(EventKey::notify_on_send_protobuf_raw_data, bytes, adf.head, adf_copy, true);
     } else {
-        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_SEND_A_SOCKET_RAW_DATA, bytes, adf.head, adf_copy, true);
+        dispatch_notify_event(EventKey::notify_on_send_socket_raw_data, bytes, adf.head, adf_copy, true);
     }
-    dispatch_notify_event(NotifyDef::ANGEL_NET_ON_SEND_A_RAW_DATA, bytes, adf.head, adf_copy, true);
+    dispatch_notify_event(EventKey::notify_on_send_raw_data, bytes, adf.head, adf_copy, true);
 
     if (mock_response_provider_) {
         auto maybe_mock = mock_response_provider_(adf.head.cmd_id);
@@ -376,17 +394,10 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     }
 
     beast::error_code ec;
-    tls_ws* tls_ws_local = nullptr;
-    plain_ws* plain_ws_local = nullptr;
-    {
-        std::lock_guard<std::mutex> ws_lock(ws_mutex_);
-        tls_ws_local = tls_ws_.get();
-        plain_ws_local = plain_ws_.get();
-    }
-    if (tls_ws_local) {
-        tls_ws_local->write(net::buffer(bytes), ec);
-    } else if (plain_ws_local) {
-        plain_ws_local->write(net::buffer(bytes), ec);
+    if (tls_ws_) {
+        tls_ws_->write(net::buffer(bytes), ec);
+    } else if (plain_ws_) {
+        plain_ws_->write(net::buffer(bytes), ec);
     } else {
         return {};
     }
@@ -399,117 +410,11 @@ std::vector<uint8_t> AngelTcpConnection::send_data(const ADF& adf) {
     return bytes;
 }
 
-void AngelTcpConnection::start_read_loop() {
-    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-    if (read_loop_running_) {
-        return;
-    }
-    stop_read_loop_.store(false);
-    read_loop_running_ = true;
-    arm_async_read();
-}
-
-void AngelTcpConnection::stop_read_loop(const bool join_thread) {
-    (void) join_thread;
-    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-    stop_read_loop_.store(true);
-    read_loop_running_ = false;
-    async_read_buffer_.consume(async_read_buffer_.size());
-    adf_cv_.notify_all();
-}
-
-void AngelTcpConnection::arm_async_read() {
-    if (stop_read_loop_.load()) {
-        std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-        read_loop_running_ = false;
-        return;
-    }
-
-    {
-        std::lock_guard<std::mutex> ws_lock(ws_mutex_);
-        if (tls_ws_) {
-            tls_ws_->async_read(async_read_buffer_, [this](const beast::error_code ec, const std::size_t) {
-                if (stop_read_loop_.load()) {
-                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-                    read_loop_running_ = false;
-                    return;
-                }
-                if (ec) {
-                    debug_line(std::format("async_read error: {}", ec.message()));
-                    on_close();
-                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-                    read_loop_running_ = false;
-                    return;
-                }
-
-                const auto data = async_read_buffer_.cdata();
-                std::vector<uint8_t> bytes(data.size());
-                boost::asio::buffer_copy(boost::asio::buffer(bytes), data);
-                async_read_buffer_.consume(async_read_buffer_.size());
-
-                ByteArray packet;
-                packet.allocate(bytes.size());
-                for (const auto byte : bytes) {
-                    packet.write_unsigned_byte(byte);
-                }
-                packet.reset();
-
-                auto result = on_message(packet, false);
-                if (!result.has_value()) {
-                    debug_line("async_read parse failed: " + result.error());
-                }
-                arm_async_read();
-            });
-            return;
-        }
-
-        if (plain_ws_) {
-            plain_ws_->async_read(async_read_buffer_, [this](const beast::error_code ec, const std::size_t) {
-                if (stop_read_loop_.load()) {
-                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-                    read_loop_running_ = false;
-                    return;
-                }
-                if (ec) {
-                    debug_line(std::format("async_read error: {}", ec.message()));
-                    on_close();
-                    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-                    read_loop_running_ = false;
-                    return;
-                }
-
-                const auto data = async_read_buffer_.cdata();
-                std::vector<uint8_t> bytes(data.size());
-                boost::asio::buffer_copy(boost::asio::buffer(bytes), data);
-                async_read_buffer_.consume(async_read_buffer_.size());
-
-                ByteArray packet;
-                packet.allocate(bytes.size());
-                for (const auto byte : bytes) {
-                    packet.write_unsigned_byte(byte);
-                }
-                packet.reset();
-
-                auto result = on_message(packet, false);
-                if (!result.has_value()) {
-                    debug_line("async_read parse failed: " + result.error());
-                }
-                arm_async_read();
-            });
-            return;
-        }
-    }
-
-    std::lock_guard<std::mutex> read_lock(read_loop_mutex_);
-    read_loop_running_ = false;
-}
-
 AngelTcpConnection::op_result AngelTcpConnection::on_message(ByteArray packet, const bool is_local_reply) {
     if (packet.length() == 0) {
         return {};
     }
 
-    std::lock_guard<std::mutex> parse_lock(parse_mutex_);
     packet.reset();
     if (Define::IS_DEBUG) {
         std::vector<uint8_t> debug_bytes;
@@ -578,7 +483,6 @@ AngelTcpConnection::op_result AngelTcpConnection::execute_combat() {
 }
 
 bool AngelTcpConnection::try_pop_sent_bytes(std::vector<uint8_t>& out_bytes) {
-    std::lock_guard<std::mutex> queue_lock(queue_mutex_);
     if (sent_bytes_queue_.empty()) {
         return false;
     }
@@ -588,29 +492,9 @@ bool AngelTcpConnection::try_pop_sent_bytes(std::vector<uint8_t>& out_bytes) {
 }
 
 bool AngelTcpConnection::try_pop_adf(ADF& out_adf) {
-    std::lock_guard<std::mutex> queue_lock(queue_mutex_);
     if (parsed_adf_queue_.empty()) {
         return false;
     }
-    out_adf = std::move(parsed_adf_queue_.front());
-    parsed_adf_queue_.pop_front();
-    return true;
-}
-
-bool AngelTcpConnection::wait_pop_adf(ADF& out_adf) {
-    std::unique_lock<std::mutex> queue_lock(queue_mutex_);
-    adf_cv_.wait(queue_lock, [this]() {
-        if (!parsed_adf_queue_.empty()) {
-            return true;
-        }
-        std::lock_guard<std::mutex> state_lock(state_mutex_);
-        return state_ == connection_state::closed || state_ == connection_state::error;
-    });
-
-    if (parsed_adf_queue_.empty()) {
-        return false;
-    }
-
     out_adf = std::move(parsed_adf_queue_.front());
     parsed_adf_queue_.pop_front();
     return true;
@@ -653,18 +537,17 @@ bool AngelTcpConnection::try_read_adf_body(ByteArray& n) {
     auto parsed_adf = std::make_shared<ADF>(*empty_adf_);
     const auto body_bytes = byte_array_to_vector(parsed_adf->body);
     if (is_protobuf_cmd(parsed_adf->head.cmd_id)) {
-        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_GET_A_PROTOBUF_RAW_DATA, body_bytes, parsed_adf->head, parsed_adf, false);
+        dispatch_notify_event(EventKey::notify_on_get_protobuf_raw_data, body_bytes, parsed_adf->head, parsed_adf, false);
     } else {
-        dispatch_notify_event(NotifyDef::ANGEL_NET_ON_GET_A_SOCKET_RAW_DATA, body_bytes, parsed_adf->head, parsed_adf, false);
+        dispatch_notify_event(EventKey::notify_on_get_socket_raw_data, body_bytes, parsed_adf->head, parsed_adf, false);
     }
-    dispatch_notify_event(NotifyDef::ANGEL_NET_ON_GET_A_RAW_DATA, body_bytes, parsed_adf->head, parsed_adf, false);
+    dispatch_notify_event(EventKey::notify_on_get_raw_data, body_bytes, parsed_adf->head, parsed_adf, false);
 
-    {
-        std::lock_guard<std::mutex> queue_lock(queue_mutex_);
-        parsed_adf_queue_.push_back(*parsed_adf);
+    parsed_adf_queue_.push_back(*parsed_adf);
+
+    auto dispatch_result = dispatch_event<void>(EventKey::tcp_conn_on_adf);
+    if (!dispatch_result.has_value()) {
+        debug_line(std::format("dispatch tcp_conn_on_adf failed: {}", dispatch_result.error()));
     }
-    adf_cv_.notify_one();
-
-    dispatch_tcp_event(EventKey::tcp_conn_on_adf, parsed_adf, {}, parsed_adf->head.cmd_id);
     return true;
 }

@@ -4,8 +4,7 @@
 #include "event/angel_data_event.hpp"
 #include "event/event_dispatcher.hpp"
 #include <cstdint>
-#include <deque>
-#include <mutex>
+#include <functional>
 #include <string_view>
 #include <vector>
 
@@ -23,21 +22,11 @@ public:
     std::vector<uint32_t> accept_types() const;
     void catch_try_send_data_error(uint32_t cmd_type, uint32_t tcp_id, int32_t error_code);
 
-    struct send_request {
-        uint32_t data_type = 0;
-        bool has_ser_num = false;
-        uint32_t ser_num = 0;
-        std::vector<uint8_t> data{};
-        AbstractDataReceiver* sender = nullptr;
-    };
+    using send_request_handler_t = std::function<void(uint32_t data_type, ByteArray data, bool has_ser_num, uint32_t tcp_id, AbstractDataReceiver* sender)>;
 
-    void send_data_to_server(uint32_t data_type, std::vector<uint8_t> data = {});
-    void send_data_with_ser_num(uint32_t data_type, std::vector<uint8_t> data = {}, uint32_t ser_num = 0);
-    bool try_pop_send_request(send_request& out_request);
-
-    // JS-aligned aliases.
-    void sendDataToServer(uint32_t data_type, std::vector<uint8_t> data = {});
-    void sendDataWithSerNum(uint32_t data_type, std::vector<uint8_t> data = {}, uint32_t ser_num = 0);
+    void send_data_to_server(uint32_t data_type, ByteArray data = ByteArray{}, uint32_t tcp_id = 1);
+    void send_data_with_ser_num(uint32_t data_type, ByteArray data = ByteArray{}, uint32_t ser_num = 0, uint32_t tcp_id = 1);
+    void set_send_request_handler(send_request_handler_t handler);
 
 protected:
     EventDispatcher* dispatcher() const;
@@ -48,6 +37,5 @@ private:
     bool accepts(uint32_t cmd_type) const;
 
     EventDispatcher* global_event_dist_ = nullptr;
-    std::deque<send_request> send_queue_{};
-    std::mutex send_queue_mutex_{};
+    send_request_handler_t send_request_handler_{};
 };

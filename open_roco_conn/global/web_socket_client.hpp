@@ -3,17 +3,13 @@
 #include "event/callback_center.hpp"
 #include "event/event_dispatcher.hpp"
 #include "event/event_key.hpp"
-#include "global/global_api.hpp"
-#include "global/user_data.hpp"
 #include "websock/angel_tcp_connection.hpp"
-#include <boost/asio/awaitable.hpp>
 #include <atomic>
-#include <cstddef>
-#include <cstdint>
+#include <chrono>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
-
 
 class WebSocketClient: public RFBase {
 public:
@@ -27,12 +23,6 @@ public:
     };
 
     static constexpr std::string_view timer_websocket_client = "web_socket_client_timer";
-    struct login_req_context {
-        UserData user_data{};
-        uint16_t room_id = 0;
-        uint32_t ui_serial_num = 1;
-        GlobalAPI* global_api = nullptr;
-    };
 
     WebSocketClient();
     ~WebSocketClient() override;
@@ -41,23 +31,21 @@ public:
     void set_notify_dispatcher(EventDispatcher* dispatcher);
     void set_callback_center(CallbackCenter* callback_center);
     std::string name() const;
-    std::size_t add_tcp_event_listener(EventKey event_key, EventDispatcher::event_callback callback);
+    template <typename Callback>
+    std::size_t add_tcp_event_listener(EventKey event_key, Callback&& callback) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return tcp_connection_.add_event_listener<void>(event_key, std::forward<Callback>(callback));
+    }
     bool remove_tcp_event_listener(EventKey event_key, std::size_t callback_id);
-    bool mark_login_req_listeners_registered();
-    void set_login_req_context(const UserData& user_data, uint16_t room_id, uint32_t ui_serial_num, GlobalAPI* global_api);
-    login_req_context get_login_req_context() const;
-    bool try_open_login_req_close_guard();
-    void reset_login_req_close_guard();
 
-    boost::asio::awaitable<bool> connect_async(std::string url);
+    bool connect(std::string url);
     void disconnect();
-    boost::asio::awaitable<void> send_async(std::vector<uint8_t> payload, uint32_t cmd_id = 0);
-    boost::asio::awaitable<void> send_adf_async(const ADF& adf);
-    bool send_adf_now(const ADF& adf);
+    bool send(std::vector<uint8_t> payload, uint32_t cmd_id = 0);
+    bool send_adf(const ADF& adf);
+    bool recv_once();
     uint32_t tcp_id() const;
     bool try_pop_adf(ADF& out_adf);
-    bool wait_pop_adf(ADF& out_adf);
-    boost::asio::awaitable<void> heartbeat_loop();
+    void heartbeat_tick();
     void push_incoming(std::vector<uint8_t> payload);
 
     state connection_state() const;
@@ -67,9 +55,8 @@ private:
     std::string url_;
     state state_ = state::disconnected;
     std::atomic<bool> stop_heartbeat_{false};
-    AngelTcpConnection tcp_connection_{};
-    login_req_context login_req_ctx_{};
-    bool login_req_listeners_registered_ = false;
-    bool login_req_close_guard_opened_ = false;
+    AngelTcpConnection tcp_connection_{1};
+    std::chrono::steady_clock::time_point last_heartbeat_{};
+    std::chrono::milliseconds heartbeat_interval_{5000};
     mutable std::mutex mutex_;
 };

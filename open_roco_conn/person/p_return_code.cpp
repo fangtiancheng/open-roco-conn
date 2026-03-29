@@ -6,6 +6,15 @@ void P_ReturnCode::read_external(ByteArray& e) {
     message = e.read_multi_byte(t, ByteArray::default_charset);
 }
 
+void P_ReturnCode::write_external(ByteArray& e) {
+    e.write_signed_int(code);
+    ByteArray msg;
+    msg.write_multi_byte(message, ByteArray::default_charset);
+    msg.reset();
+    e.write_unsigned_short(static_cast<uint16_t>(msg.length()));
+    e.write_bytes(msg, 0, msg.length());
+}
+
 bool P_ReturnCode::is_error() const {
     return code != OK;
 }

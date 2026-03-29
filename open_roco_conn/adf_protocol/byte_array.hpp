@@ -21,7 +21,7 @@ public:
 
     const std::string_view get_param1() const override{return "6aa3clmfLZDQLiqwyNrV2Kk";}
     const std::string_view get_param2() const override{return "ByteArray";}
-
+    ByteArray();
     virtual void allocate(size_t len = 8192);
     bool read_boolean();
     uint8_t read_unsigned_byte();

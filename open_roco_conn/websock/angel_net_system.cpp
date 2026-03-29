@@ -1,34 +1,40 @@
 #include "websock/angel_net_system.hpp"
+#include "base/define.hpp"
 
-#include <algorithm>
 #include <format>
+#include <limits>
 #include <utility>
+#include <vector>
 
 void AngelNetSystem::initialize(EventDispatcher& dispatcher, WebSocketClient& web_socket_client) {
     finalize();
     dispatcher_ = &dispatcher;
     web_socket_client_ = &web_socket_client;
-    try_send_listener_id_ = dispatcher_->add_event_listener(std::string(AngelDataEvent::TRYSENDADF), [this]() {
-        on_try_send_adf_event();
-    });
-    tcp_connected_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_connected, [this]() {
+    adf_receivers_.initialize(*dispatcher_, this);
+    tcp_connected_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_connected, [this]() -> EventDispatcher::dispatch_result_t {
         on_tcp_connected_event();
+        return {};
     });
-    tcp_closed_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_closed, [this]() {
+    tcp_closed_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_closed, [this]() -> EventDispatcher::dispatch_result_t {
         on_tcp_closed_event();
+        return {};
     });
-    tcp_error_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_error, [this]() {
+    tcp_error_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_error, [this]() -> EventDispatcher::dispatch_result_t {
         on_tcp_error_event();
+        return {};
     });
-    tcp_timeout_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_timeout, [this]() {
+    tcp_timeout_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_timeout, [this]() -> EventDispatcher::dispatch_result_t {
         on_tcp_timeout_event();
+        return {};
     });
-    tcp_on_adf_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_on_adf, [this]() {
+    tcp_on_adf_listener_id_ = web_socket_client_->add_tcp_event_listener(EventKey::tcp_conn_on_adf, [this]() -> EventDispatcher::dispatch_result_t {
         on_tcp_on_adf_event();
+        return {};
     });
 }
 
 void AngelNetSystem::finalize() {
+    adf_receivers_.dispose();
     if (web_socket_client_ != nullptr) {
         if (tcp_connected_listener_id_ != 0) {
             web_socket_client_->remove_tcp_event_listener(EventKey::tcp_conn_connected, tcp_connected_listener_id_);
@@ -46,60 +52,22 @@ void AngelNetSystem::finalize() {
             web_socket_client_->remove_tcp_event_listener(EventKey::tcp_conn_on_adf, tcp_on_adf_listener_id_);
         }
     }
-    if (dispatcher_ != nullptr && try_send_listener_id_ != 0) {
-        dispatcher_->remove_event_listener(std::string(AngelDataEvent::TRYSENDADF), try_send_listener_id_);
-    }
-    try_send_listener_id_ = 0;
     tcp_connected_listener_id_ = 0;
     tcp_closed_listener_id_ = 0;
     tcp_error_listener_id_ = 0;
     tcp_timeout_listener_id_ = 0;
     tcp_on_adf_listener_id_ = 0;
-    pending_req_receivers_.clear();
-    cmd_receivers_.clear();
-    receivers_.clear();
     web_socket_client_ = nullptr;
     dispatcher_ = nullptr;
     current_state_.clear();
 }
 
 void AngelNetSystem::add_data_receiver(AbstractDataReceiver* receiver) {
-    if (receiver == nullptr) {
-        return;
-    }
-    if (std::find(receivers_.begin(), receivers_.end(), receiver) != receivers_.end()) {
-        return;
-    }
-    receivers_.push_back(receiver);
-    for (const auto cmd_type : receiver->accept_types()) {
-        auto& bucket = cmd_receivers_[cmd_type];
-        if (std::find(bucket.begin(), bucket.end(), receiver) == bucket.end()) {
-            bucket.push_back(receiver);
-        }
-    }
+    adf_receivers_.add(receiver);
 }
 
 void AngelNetSystem::remove_data_receiver(AbstractDataReceiver* receiver) {
-    if (receiver == nullptr) {
-        return;
-    }
-    receivers_.erase(std::remove(receivers_.begin(), receivers_.end(), receiver), receivers_.end());
-    for (auto it = cmd_receivers_.begin(); it != cmd_receivers_.end();) {
-        auto& bucket = it->second;
-        bucket.erase(std::remove(bucket.begin(), bucket.end(), receiver), bucket.end());
-        if (bucket.empty()) {
-            it = cmd_receivers_.erase(it);
-            continue;
-        }
-        ++it;
-    }
-    for (auto it = pending_req_receivers_.begin(); it != pending_req_receivers_.end();) {
-        if (it->second == receiver) {
-            it = pending_req_receivers_.erase(it);
-            continue;
-        }
-        ++it;
-    }
+    adf_receivers_.remove(receiver);
 }
 
 void AngelNetSystem::add_data_processor(AdfProcessor* processor) {
@@ -120,27 +88,11 @@ void AngelNetSystem::on_receive_adf(const ADF& adf) {
         on_before_dispatch_adf_(decoded_adf);
     }
 
-    if (decoded_adf.head.ui_serial_num != 0) {
-        const auto key = make_serial_key(decoded_adf.head.cmd_id, decoded_adf.head.ui_serial_num);
-        if (auto it = pending_req_receivers_.find(key); it != pending_req_receivers_.end()) {
-            AbstractDataReceiver* receiver = it->second;
-            pending_req_receivers_.erase(it);
-            if (receiver != nullptr) {
-                (void) receiver->receive(decoded_adf);
-                return;
-            }
-        }
-    }
-
-    auto it = cmd_receivers_.find(decoded_adf.head.cmd_id);
-    if (it == cmd_receivers_.end()) {
-        return;
-    }
-    for (auto* receiver : it->second) {
-        if (receiver == nullptr) {
-            continue;
-        }
-        (void) receiver->receive(decoded_adf);
+    if (!adf_receivers_.on_data_receive(decoded_adf) && Define::IS_DEBUG) {
+        RFBase::debug_line(
+            "AngelNetSystem",
+            std::format("cmd=0x{:x} not handled by ADFReceivers", decoded_adf.head.cmd_id)
+        );
     }
 }
 
@@ -183,55 +135,54 @@ void AngelNetSystem::dispatch_net_state_change(std::string curr_state, std::stri
         return;
     }
     current_state_ = curr_state;
-    AngelNetSysEvent state_event{std::string(AngelNetSysEvent::ON_STATE_CHANGE)};
-    state_event.curr_state = std::move(curr_state);
-    state_event.message = std::move(message);
-    state_event.tcp_id = web_socket_client_ != nullptr ? web_socket_client_->tcp_id() : 0;
-    dispatcher_->dispatch_event(state_event);
-}
-
-void AngelNetSystem::on_try_send_adf_event() {
-    for (auto* receiver : receivers_) {
-        if (receiver == nullptr) {
-            continue;
-        }
-        AbstractDataReceiver::send_request request{};
-        while (receiver->try_pop_send_request(request)) {
-            uint32_t serial_num = try_send_data(request);
-            if (serial_num == 0 && request.sender != nullptr) {
-                request.sender->catch_try_send_data_error(request.data_type, 0, -1);
-                continue;
-            }
-            if (request.has_ser_num && request.sender != nullptr) {
-                pending_req_receivers_[make_serial_key(request.data_type, serial_num)] = request.sender;
-            }
-        }
+    (void) message;
+    auto dispatch_result = dispatcher_->dispatch_event<void>(EventKey::net_state_change);
+    if (!dispatch_result.has_value()) {
+        RFBase::debug_line("AngelNetSystem", std::format("dispatch net_state_change failed: {}", dispatch_result.error()));
     }
 }
 
-uint32_t AngelNetSystem::try_send_data(const AbstractDataReceiver::send_request& request) {
-    if (web_socket_client_ == nullptr) {
+uint32_t AngelNetSystem::try_send_data(const uint32_t data_type,
+                                       ByteArray data,
+                                       const bool has_ser_num,
+                                       const uint32_t tcp_id) {
+    auto* tcp_proxy = get_tcp_proxy(tcp_id);
+    if (tcp_proxy == nullptr) {
         return 0;
     }
 
     uint32_t serial_num = 0;
-    if (request.has_ser_num) {
+    if (has_ser_num) {
         ++next_serial_num_;
         serial_num = next_serial_num_;
     }
 
-    auto adf_opt = processors_.encode(request.data, request.data_type, serial_num);
+    data.reset();
+    std::vector<uint8_t> payload{};
+    payload.reserve(data.length());
+    while (data.bytes_available() > 0) {
+        payload.push_back(data.read_unsigned_byte());
+    }
+
+    auto adf_opt = processors_.encode(payload, data_type, serial_num);
     if (!adf_opt.has_value()) {
         return 0;
     }
 
     ADF adf = std::move(adf_opt.value());
-    if (!web_socket_client_->send_adf_now(adf)) {
+    if (!tcp_proxy->send_adf(adf)) {
         return 0;
     }
-    return request.has_ser_num ? serial_num : 1;
+    return has_ser_num ? serial_num : 1;
 }
 
-std::string AngelNetSystem::make_serial_key(const uint32_t cmd_type, const uint32_t serial_num) {
-    return std::format("{} {}", cmd_type, serial_num);
+WebSocketClient* AngelNetSystem::get_tcp_proxy(const uint32_t tcp_id) {
+    if (web_socket_client_ == nullptr) {
+        return nullptr;
+    }
+    constexpr uint32_t default_tcp_id = std::numeric_limits<uint32_t>::max();
+    if (tcp_id == default_tcp_id || web_socket_client_->tcp_id() == tcp_id) {
+        return web_socket_client_;
+    }
+    return nullptr;
 }

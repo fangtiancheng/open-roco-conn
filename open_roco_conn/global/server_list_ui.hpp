@@ -9,9 +9,9 @@
 #include "httpreq/cgi2.hpp"
 #include "login/login_data_repply.hpp"
 #include "login/server_info.hpp"
+#include "receiver/login_receiver.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <boost/json.hpp>
-#include <array>
 #include <expected>
 #include <map>
 #include <utility>
@@ -67,56 +67,51 @@ public:
         const UserData& user_data
     );
 
-    static boost::asio::awaitable<result> login_logic(
+    result login_logic(
         WebSocketClient& web_socket_client,
         GlobalAPI& global_api,
         const UserData& user_data,
         uint16_t room_id,
-        uint32_t ui_serial_num = 1
+        LoginReceiver* login_receiver = nullptr
     );
-    static boost::asio::awaitable<result> login_req(
+    result login_req(
         WebSocketClient& web_socket_client,
         GlobalAPI& global_api,
         const UserData& user_data,
         uint16_t room_id,
-        uint32_t ui_serial_num = 1
+        LoginReceiver* login_receiver = nullptr
     );
-    static boost::asio::awaitable<result> on_tcp_connect(
-        WebSocketClient& web_socket_client,
+    result on_tcp_connect(
         const UserData& user_data,
-        uint16_t room_id,
-        uint32_t ui_serial_num = 1
+        uint16_t room_id
     );
-    static void on_tcp_connect_close(GlobalAPI& global_api, const std::string& reason = {});
+    void on_tcp_connect_close(const std::string& reason = {});
 
-    static boost::asio::awaitable<result> send_login_conn_data(
-        WebSocketClient& web_socket_client,
-        const ServerInfo& server_info,
-        uint32_t ui_serial_num
+    result send_login_conn_data(
+        uint32_t cmd_type,
+        const ServerInfo& server_info
     );
-    static login_reply_result handle_login_reply(GlobalAPI& global_api, const ADF& adf);
+    login_reply_result handle_login_reply(GlobalAPI& global_api, const ADF& adf);
 
 private:
-    using tcp_event_handler = void (*)(WebSocketClient&);
-    struct tcp_event_binding {
-        EventKey event_key = EventKey::tcp_conn_connected;
-        tcp_event_handler handler = nullptr;
-    };
-
-    static result send_login_conn_data_now(
-        WebSocketClient& web_socket_client,
-        const ServerInfo& server_info,
-        uint32_t ui_serial_num
-    );
-    static const std::array<tcp_event_binding, 4>& tcp_login_event_bindings();
-    static void ensure_login_req_listeners(WebSocketClient& web_socket_client);
-    static void on_tcp_connected_event(WebSocketClient& web_socket_client);
-    static void on_tcp_error_event(WebSocketClient& web_socket_client);
-    static void on_tcp_timeout_event(WebSocketClient& web_socket_client);
-    static void on_tcp_closed_event(WebSocketClient& web_socket_client);
+    std::expected<void, std::string> on_tcp_connected_event();
+    void on_tcp_error_event();
+    void on_tcp_timeout_event();
+    void on_tcp_closed_event();
 
     static boost::asio::awaitable<cgi_result> request_dir_data(
         HttpRequest& http_request,
         const HttpRequest::params_t& params
     );
+
+    WebSocketClient* web_socket_client_ = nullptr;
+    GlobalAPI* global_api_ = nullptr;
+    LoginReceiver* login_receiver_ = nullptr;
+    UserData login_user_data_{};
+    uint16_t login_room_id_ = 0;
+    bool tcp_listeners_registered_ = false;
+    std::size_t tcp_connected_listener_id_ = 0;
+    std::size_t tcp_error_listener_id_ = 0;
+    std::size_t tcp_timeout_listener_id_ = 0;
+    std::size_t tcp_closed_listener_id_ = 0;
 };
