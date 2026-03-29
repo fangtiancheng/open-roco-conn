@@ -34,7 +34,10 @@ void run_awaitable_blocking(net::io_context& io_context, net::awaitable<void> ta
 int run_real_login_pre_room_flow(AppContext& ctx) {
     try {
         std::map<std::string, std::string> mock_cookie_map{
-
+            {"angel_uin", "1718689799"},
+            {"angel_key", "AEC3A193F65EC10A98E477A80B6E5AA80D8933E85A01BC0DCB56D77F5398C314"},
+            {"skey", "E0F1BC480BB95FFA9C0426C83E972413"},
+            {"pskey", "B0B165CACBAC6588D97BE64AACB00EB0"}
         };
 
         net::io_context io_context;

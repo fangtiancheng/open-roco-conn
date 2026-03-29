@@ -70,6 +70,7 @@ void AngleMain::initialize() {
     web_socket_client_.set_notify_dispatcher(&angle_event_manager_.angel_event_dispatcher());
     web_socket_client_.set_callback_center(callback_center_);
     net_system_.initialize(angle_event_manager_.angel_event_dispatcher(), web_socket_client_);
+    net_system_.set_user_uin(user_data_.uin);
     login_receiver_.initialize(&angle_event_manager_.angel_event_dispatcher());
     login_receiver_.set_receive_handler([this](const uint32_t cmd_type, const ADF& adf) {
         if (cmd_type != ADFCmdsType::T_LoginRoom) {

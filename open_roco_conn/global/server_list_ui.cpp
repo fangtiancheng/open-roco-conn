@@ -428,6 +428,9 @@ ServerListUI::result ServerListUI::send_login_conn_data(
     if (login_receiver_ == nullptr) {
         return std::unexpected("ServerListUI: login_receiver is null");
     }
+    if (web_socket_client_ == nullptr) {
+        return std::unexpected("ServerListUI: web_socket_client is null");
+    }
     ByteArray b;
     {
         LoginDataBody body;
@@ -435,7 +438,7 @@ ServerListUI::result ServerListUI::send_login_conn_data(
         body.key = server_info.session_key;
         body.write_external(b);
     }
-    login_receiver_->send_data(1, cmd_type, std::move(b));
+    login_receiver_->send_data(web_socket_client_->tcp_id(), cmd_type, std::move(b));
     RFBase::debug_line(
         "ServerListUI",
         std::format("sendLoginConnData cmd=0x{:x} roomID={}", cmd_type, server_info.room_id)

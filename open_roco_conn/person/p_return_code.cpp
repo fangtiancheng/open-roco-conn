@@ -7,12 +7,7 @@ void P_ReturnCode::read_external(ByteArray& e) {
 }
 
 void P_ReturnCode::write_external(ByteArray& e) {
-    e.write_signed_int(code);
-    ByteArray msg;
-    msg.write_multi_byte(message, ByteArray::default_charset);
-    msg.reset();
-    e.write_unsigned_short(static_cast<uint16_t>(msg.length()));
-    e.write_bytes(msg, 0, msg.length());
+    (void) e;
 }
 
 bool P_ReturnCode::is_error() const {

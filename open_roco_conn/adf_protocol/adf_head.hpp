@@ -25,4 +25,5 @@ public:
     void read_external(ByteArray& e);
     void write_external(ByteArray& e) const;
     static int can_read(ByteArray& e);
+    std::string to_string() const;
 };

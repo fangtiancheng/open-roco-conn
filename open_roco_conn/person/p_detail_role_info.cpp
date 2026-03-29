@@ -1,6 +1,10 @@
 #include "p_detail_role_info.hpp"
 #include "base/define.hpp"
 
+void P_DetailRoleInfo::write_external(ByteArray& adf) {
+    (void) adf;
+}
+
 void P_DetailRoleInfo::read_external(ByteArray &adf) {
     auto& info = *this;
     info.sex = adf.read_signed_byte();

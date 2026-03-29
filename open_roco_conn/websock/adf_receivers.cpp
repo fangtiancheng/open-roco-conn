@@ -3,6 +3,7 @@
 #include "websock/angel_net_system.hpp"
 #include <algorithm>
 #include <format>
+#include <limits>
 #include <utility>
 
 void ADFReceivers::initialize(EventDispatcher& dispatcher, AngelNetSystem* net_system) {
@@ -31,7 +32,7 @@ void ADFReceivers::dispose() {
     pending_data_type_.reset();
     pending_data_ = ByteArray{};
     pending_has_ser_num_ = false;
-    pending_tcp_id_ = 1;
+    pending_tcp_id_ = std::numeric_limits<uint32_t>::max();
     pending_sender_ = nullptr;
 }
 
@@ -135,7 +136,7 @@ void ADFReceivers::all_send_adf_handler() {
     pending_data_type_.reset();
     pending_data_ = ByteArray{};
     pending_has_ser_num_ = false;
-    pending_tcp_id_ = 1;
+    pending_tcp_id_ = std::numeric_limits<uint32_t>::max();
     pending_sender_ = nullptr;
 
     const uint32_t serial_num = net_system_->try_send_data(data_type, std::move(data), has_ser_num, tcp_id);

@@ -6,6 +6,7 @@
 #include "receiver/abstract_data_receiver.hpp"
 #include <cstdint>
 #include <cstddef>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -39,6 +40,6 @@ private:
     std::optional<uint32_t> pending_data_type_{};
     ByteArray pending_data_{};
     bool pending_has_ser_num_ = false;
-    uint32_t pending_tcp_id_ = 1;
+    uint32_t pending_tcp_id_ = std::numeric_limits<uint32_t>::max();
     AbstractDataReceiver* pending_sender_ = nullptr;
 };

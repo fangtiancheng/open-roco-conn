@@ -6,7 +6,7 @@ if(MSVC)
     add_compile_options(/bigobj /utf-8 -D_WIN32_WINNT=0x0602)
 endif()
 
-find_package(Boost CONFIG REQUIRED COMPONENTS headers url json log log_setup)
+find_package(Boost CONFIG REQUIRED COMPONENTS headers url json)
 if(NOT TARGET Boost::system)
     add_library(Boost::system INTERFACE IMPORTED)
     set_property(TARGET Boost::system PROPERTY INTERFACE_LINK_LIBRARIES Boost::headers)
@@ -30,7 +30,6 @@ add_library(base STATIC
     ${BASE_DIR}/unicode_translator.hpp
 )
 target_include_directories(base PRIVATE ${SRC_DIR} ${BASE_DIR})
-target_link_libraries(base PRIVATE Boost::log Boost::log_setup)
 
 # adf
 set(ADF_DIR ${SRC_DIR}/adf_protocol)
@@ -38,13 +37,30 @@ add_library(adf_protocol STATIC
     ${ADF_DIR}/adf.cpp
     ${ADF_DIR}/adf_cmds_type.hpp
     ${ADF_DIR}/adf_head.cpp
-    ${ADF_DIR}/adf_processors.cpp
+    ${ADF_DIR}/free_pb_request_proxy.cpp
     ${ADF_DIR}/bag_spirit_skill_data.cpp
     ${ADF_DIR}/byte_array.cpp
     ${ADF_DIR}/byte_buffer.cpp
 )
 target_include_directories(adf_protocol PRIVATE ${SRC_DIR} ${ADF_DIR})
 target_link_libraries(adf_protocol PRIVATE base Iconv::Iconv)
+
+set(DATA_PROCESSOR_DIR ${SRC_DIR}/data_processor)
+add_library(data_processor STATIC
+    ${DATA_PROCESSOR_DIR}/adf_processors.cpp
+    ${DATA_PROCESSOR_DIR}/p_free_request.cpp
+    ${DATA_PROCESSOR_DIR}/p_free_request2.cpp
+)
+target_include_directories(data_processor PRIVATE ${SRC_DIR} ${DATA_PROCESSOR_DIR})
+target_link_libraries(data_processor PRIVATE base adf_protocol person)
+
+set(NET_PROCESSOR_DIR ${SRC_DIR}/net_processor)
+add_library(net_processor STATIC
+    ${NET_PROCESSOR_DIR}/net_processor.cpp
+    ${NET_PROCESSOR_DIR}/tcp.cpp
+)
+target_include_directories(net_processor PRIVATE ${SRC_DIR} ${NET_PROCESSOR_DIR})
+target_link_libraries(net_processor PRIVATE base adf_protocol data_processor)
 
 set(PERSON_DIR ${SRC_DIR}/person)
 add_library(person STATIC
@@ -60,6 +76,19 @@ add_library(person STATIC
 )
 target_include_directories(person PRIVATE ${SRC_DIR} ${PERSON_DIR})
 target_link_libraries(person PRIVATE base adf_protocol)
+
+set(PROTO_BUNDLE_DIR ${SRC_DIR}/proto_bundle)
+add_library(proto_bundle STATIC
+    ${PROTO_BUNDLE_DIR}/proto_wire.cpp
+    ${PROTO_BUNDLE_DIR}/mail_base_info.cpp
+    ${PROTO_BUNDLE_DIR}/attach.cpp
+    ${PROTO_BUNDLE_DIR}/mail_detail.cpp
+    ${PROTO_BUNDLE_DIR}/mail_box_proto.cpp
+    ${PROTO_BUNDLE_DIR}/angel_message_box.cpp
+    ${PROTO_BUNDLE_DIR}/zone_novice_revision.cpp
+)
+target_include_directories(proto_bundle PRIVATE ${SRC_DIR} ${PROTO_BUNDLE_DIR})
+target_link_libraries(proto_bundle PRIVATE base adf_protocol)
 
 # spirit
 set(SPIRIT_DIR ${SRC_DIR}/spirit)
@@ -160,7 +189,7 @@ add_library(global STATIC
     ${REBIRTH_DIR}/rebirth_data_proxy.cpp
 )
 target_include_directories(global PRIVATE ${SRC_DIR} ${GLOBAL_DIR} ${WORLD_DIR} ${RECEIVER_DIR} ${REBIRTH_DIR})
-target_link_libraries(global PRIVATE base adf_protocol event Boost::headers spirit_book httpreq login)
+target_link_libraries(global PRIVATE base adf_protocol event Boost::headers spirit_book httpreq login proto_bundle)
 
 set(HTTPREQ_DIR ${SRC_DIR}/httpreq)
 add_library(httpreq STATIC
@@ -185,7 +214,7 @@ add_library(websock STATIC
     ${WEBSOCK_DIR}/tcp_transmission.cpp
 )
 target_include_directories(websock PRIVATE ${SRC_DIR} ${WEBSOCK_DIR})
-target_link_libraries(websock PRIVATE base adf_protocol event global Boost::headers OpenSSL::SSL)
+target_link_libraries(websock PRIVATE base adf_protocol data_processor event global Boost::headers OpenSSL::SSL)
 
 set(SPIRIT_BOOK_DIR ${SRC_DIR}/spirit_book)
 add_library(spirit_book STATIC
@@ -210,6 +239,7 @@ target_link_libraries(app PRIVATE
     event
     httpreq
     websock
+    net_processor
     Boost::headers
 )
 
