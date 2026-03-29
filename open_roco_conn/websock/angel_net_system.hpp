@@ -5,13 +5,12 @@
 #include "event/event_dispatcher.hpp"
 #include "global/web_socket_client.hpp"
 #include "receiver/abstract_data_receiver.hpp"
+#include "websock/adf_receivers.hpp"
 #include "websock/angel_net_sys_event.hpp"
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
-#include <vector>
 
 class AngelNetSystem: public RFBase {
 public:
@@ -30,6 +29,7 @@ public:
     void on_receive_adf(const ADF& adf);
     void set_on_before_dispatch_adf(adf_callback callback);
     std::string current_state() const;
+    friend class ADFReceivers;
 
 private:
     void on_tcp_on_adf_event();
@@ -38,13 +38,11 @@ private:
     void on_tcp_error_event();
     void on_tcp_timeout_event();
     void dispatch_net_state_change(std::string curr_state, std::string message = {});
-    void on_try_send_adf_event();
-    uint32_t try_send_data(const AbstractDataReceiver::send_request& request);
-    static std::string make_serial_key(uint32_t cmd_type, uint32_t serial_num);
+    uint32_t try_send_data(uint32_t data_type, ByteArray data, bool has_ser_num, uint32_t tcp_id);
+    WebSocketClient* get_tcp_proxy(uint32_t tcp_id);
 
     EventDispatcher* dispatcher_ = nullptr;
     WebSocketClient* web_socket_client_ = nullptr;
-    std::size_t try_send_listener_id_ = 0;
     std::size_t tcp_connected_listener_id_ = 0;
     std::size_t tcp_closed_listener_id_ = 0;
     std::size_t tcp_error_listener_id_ = 0;
@@ -52,9 +50,7 @@ private:
     std::size_t tcp_on_adf_listener_id_ = 0;
     std::string current_state_{};
     uint32_t next_serial_num_ = 0;
-    std::vector<AbstractDataReceiver*> receivers_{};
-    std::unordered_map<uint32_t, std::vector<AbstractDataReceiver*>> cmd_receivers_{};
-    std::unordered_map<std::string, AbstractDataReceiver*> pending_req_receivers_{};
+    ADFReceivers adf_receivers_{};
     AdfProcessors processors_{};
     adf_callback on_before_dispatch_adf_{};
 };

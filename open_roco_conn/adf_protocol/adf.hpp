@@ -3,18 +3,19 @@
 #include <vector>
 #include <string>
 #include "adf_head.hpp"
+#include "base/i_externalizable.hpp"
 #include "base/rf_base.hpp"
 #include "base/define.hpp"
 #include "byte_array.hpp"
 
-class ADF: public RFBase{
+class ADF: public RFBase, public IExternalizable {
 public:
     const std::string_view get_param1() const override{return "4c4bdiyqNpDYbBHA/inxurd";}
     const std::string_view get_param2() const override{return "ADF";}
     ADFHead head;
     ByteArray body;
-    void read_external(ByteArray&);
-    void write_external(ByteArray&);
+    void read_external(ByteArray&) override;
+    void write_external(ByteArray&) override;
 };
 
 

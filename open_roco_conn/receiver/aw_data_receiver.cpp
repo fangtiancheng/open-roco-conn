@@ -15,6 +15,9 @@ bool AWDataReceiver::on_data_receive(const uint32_t cmd_type, const ADF* adf) {
     if (dispatcher() == nullptr) {
         return false;
     }
-    dispatcher()->dispatch_event(EventKey::scene_data_init);
+    auto dispatch_result = dispatcher()->dispatch_event<void>(EventKey::scene_data_init);
+    if (!dispatch_result.has_value()) {
+        RFBase::debug_line("AWDataReceiver", "dispatch scene_data_init failed: " + dispatch_result.error());
+    }
     return true;
 }

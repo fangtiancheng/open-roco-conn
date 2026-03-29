@@ -6,20 +6,16 @@
 #include "global_api.hpp"
 #include "global_timer.hpp"
 #include "global/user_data.hpp"
+#include "global/server_list_ui.hpp"
 #include "login/server_info.hpp"
 #include "receiver/login_receiver.hpp"
 #include "websock/angel_net_system.hpp"
 #include "world/angle_world.hpp"
 #include "web_socket_client.hpp"
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/io_context.hpp>
 #include <atomic>
 #include <cstddef>
 #include <functional>
 #include <memory>
-#include <optional>
-#include <thread>
 
 class AngleMain: public RFBase {
 public:
@@ -47,6 +43,7 @@ public:
     void set_render(bool value);
     bool get_is_render() const;
     bool is_initialized() const;
+    void tick_once();
     void finalize();
 
     // Headless API surface:
@@ -61,7 +58,7 @@ public:
     [[noreturn]] void get_external_api() const;
 
 private:
-    boost::asio::awaitable<void> async_bootstrap();
+    void bootstrap_websocket();
     void on_login_ok_event();
     void on_net_state_change_event();
     void on_tcp_closed_or_error();
@@ -80,12 +77,10 @@ private:
     CallbackCenter* callback_center_ = nullptr;
     std::unique_ptr<AngleWorld> world_{};
     LoginReceiver login_receiver_{};
+    ServerListUI server_list_ui_{};
     AngleEventManager angle_event_manager_{};
     AngelNetSystem net_system_{};
     WebSocketClient web_socket_client_{};
     std::size_t login_ok_listener_id_ = 0;
     std::size_t net_state_listener_id_ = 0;
-    boost::asio::io_context io_context_{};
-    std::optional<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_{};
-    std::thread io_thread_{};
 };

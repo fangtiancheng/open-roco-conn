@@ -77,6 +77,10 @@ std::string transcode(std::string_view input, std::string_view from, std::string
 
 }  // namespace
 
+ByteArray::ByteArray() {
+    ByteArray::allocate();
+}
+
 void ByteArray::allocate(size_t size) {
     _buffer.resize(size);
     _byte_offset = 0;

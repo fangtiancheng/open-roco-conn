@@ -15,6 +15,15 @@ using tcp = net::ip::tcp;
 namespace urls = boost::urls;
 namespace ssl = boost::asio::ssl;
 
+constexpr std::string_view response_type_to_string(HttpRequest::ResponseType response_type) {
+    switch (response_type) {
+        case HttpRequest::ResponseType::arraybuffer: return "arraybuffer";
+        case HttpRequest::ResponseType::txt: return "txt";
+        case HttpRequest::ResponseType::json: return "json";
+            default: return "";
+    }
+}
+
 template<HttpRequest::ResponseType response_type>
 boost::asio::awaitable<std::expected<HttpRequest::ResponseDataT<response_type>, HttpRequest::HttpError>>
 HttpRequest::send_request(
@@ -47,7 +56,7 @@ HttpRequest::send_request(
         request_target += "?" + std::string(url.query());
     }
     if (Define::IS_DEBUG) {
-        debug_line("query " + endpoint + request_target);
+        debug_line(std::format("query {} {}{}", response_type_to_string(response_type), endpoint, request_target));
     }
     if (url.scheme() == "http") {
         co_return co_await send_http_request<response_type>(

@@ -8,8 +8,9 @@ void AngleWorld::initialize(EventDispatcher& dispatcher) {
     is_online_ = true;
 
     data_receiver_.initialize(dispatcher_);
-    dispatcher_->add_event_listener(EventKey::scene_data_init, [this]() {
+    dispatcher_->add_event_listener<void>(EventKey::scene_data_init, [this]() -> EventDispatcher::dispatch_result_t {
         on_scene_data_init();
+        return {};
     });
 }
 

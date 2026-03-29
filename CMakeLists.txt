@@ -119,7 +119,7 @@ add_library(event STATIC
     ${EVENT_DIR}/tcp_conn_event.cpp
 )
 target_include_directories(event PRIVATE ${SRC_DIR} ${EVENT_DIR})
-target_link_libraries(event PRIVATE base adf_protocol)
+target_link_libraries(event PRIVATE base adf_protocol Boost::headers Boost::json)
 
 set(LOGIN_DIR ${SRC_DIR}/login)
 add_library(login STATIC
@@ -178,6 +178,7 @@ target_link_libraries(httpreq PRIVATE base Boost::headers Boost::url Boost::json
 
 set(WEBSOCK_DIR ${SRC_DIR}/websock)
 add_library(websock STATIC
+    ${WEBSOCK_DIR}/adf_receivers.cpp
     ${WEBSOCK_DIR}/angel_net_system.cpp
     ${WEBSOCK_DIR}/angel_tcp_connection.cpp
     ${WEBSOCK_DIR}/linger_tcp_connection.cpp

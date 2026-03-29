@@ -1,14 +1,16 @@
 #pragma once
 #include "base/rf_base.hpp"
+#include "base/i_externalizable.hpp"
 #include "adf_protocol/byte_array.hpp"
 #include <cstdint>
 
 
-class LoginDataBody: public RFBase {
+class LoginDataBody: public RFBase, public IExternalizable {
 public:
     const std::string_view get_param1() const override { return "d3298nQNoxMybPdyGlSw9O7"; }
     const std::string_view get_param2() const override { return "LoginDataBody"; }
     int16_t room_id;
     std::string key = "102s1df2asd15asd4f";
-    void write_external(ByteArray&);
+    void read_external(ByteArray&) override;
+    void write_external(ByteArray&) override;
 };

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <thread>
 
 namespace net = boost::asio;
 
@@ -30,13 +31,10 @@ void run_awaitable_blocking(net::io_context& io_context, net::awaitable<void> ta
     fut.get();
 }
 
-void run_real_login_pre_room_flow(AppContext& ctx) {
+int run_real_login_pre_room_flow(AppContext& ctx) {
     try {
         std::map<std::string, std::string> mock_cookie_map{
-            {"angel_uin", "778860550"},
-            {"angel_key", "5018789EFBC1E7A7BD308C1EDA7BCDFD90AD2879EE0450C7B2EB2E0E89F82394"},
-            {"skey", "090ECC0CCE86F2B5C6800A8FFF1E5A95"},
-            {"pskey", "AE1C1526F7355354E57BF6F3965E4605"}
+
         };
 
         net::io_context io_context;
@@ -45,7 +43,7 @@ void run_real_login_pre_room_flow(AppContext& ctx) {
         auto launch_result = launch.on_load(mock_cookie_map, ctx.user_data, ctx.global_game_info);
         if (!launch_result.has_value()) {
             RFBase::debug_line("App", std::format("GameLaunch failed: {}", launch_result.error()));
-            return;
+            return 1;
         }
 
         RFBase::debug_line(
@@ -60,7 +58,7 @@ void run_real_login_pre_room_flow(AppContext& ctx) {
         );
         if (!recommend_result.has_value()) {
             RFBase::debug_line("App", std::format("on_request_recommend_data failed: {}", recommend_result.error()));
-            return;
+            return 2;
         }
         ServerListUI::print_room_response(recommend_result.value(), "recommend");
 
@@ -73,7 +71,7 @@ void run_real_login_pre_room_flow(AppContext& ctx) {
         );
         if (!range_result.has_value()) {
             RFBase::debug_line("App", std::format("on_request_range_data failed: {}", range_result.error()));
-            return;
+            return 3;
         }
         ServerListUI::print_room_response(range_result.value(), "range");
 
@@ -109,17 +107,27 @@ void run_real_login_pre_room_flow(AppContext& ctx) {
         auto* angle_main = manager.angle_main();
         if (angle_main == nullptr) {
             RFBase::debug_line("App", "AngleMain is null, exit");
-            return;
+            return 4;
         }
 
-        RFBase::debug_line("App", "running in event-driven mode, press Enter to stop");
-        std::string line;
-        std::getline(std::cin, line);
+        RFBase::debug_line("App", "single-thread loop running, press Enter to stop");
+        while (angle_main->is_initialized()) {
+            angle_main->tick_once();
+            if (std::cin.rdbuf()->in_avail() > 0) {
+                std::string line;
+                std::getline(std::cin, line);
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
         angle_main->finalize();
+        return 0;
     } catch (const std::exception& ex) {
         RFBase::debug_line("App", std::format("exception: {}", ex.what()));
+        return 100;
     } catch (...) {
         RFBase::debug_line("App", "unknown exception");
+        return 101;
     }
 }
 }
@@ -129,6 +137,5 @@ int main() {
     // Temporary for local debugging when OpenSSL CA trust store is missing on Windows.
     // Turn this off after certificates are configured.
     ctx.http_request.set_insecure_skip_tls_verify(true);
-    run_real_login_pre_room_flow(ctx);
-    return 0;
+    return run_real_login_pre_room_flow(ctx);
 }
